@@ -31,7 +31,7 @@ Alla prima apertura l'app mostra il form di **setup**: nome + `SETUP_SECRET` (qu
 
 ## Provisioning sulla VPS (una tantum)
 
-1. **DNS**: record A `fit.crystaltokyo.it` → IP della VPS (dal proprio provider DNS)
+1. **DNS**: record A `fit.itacavilla.it` → IP della VPS (dal proprio provider DNS)
 2. **MySQL**:
    ```sql
    CREATE DATABASE fit_tracker CHARACTER SET utf8mb4;
@@ -39,13 +39,13 @@ Alla prima apertura l'app mostra il form di **setup**: nome + `SETUP_SECRET` (qu
    GRANT ALL PRIVILEGES ON fit_tracker.* TO 'fit_tracker'@'localhost';
    ```
    poi `mysql -u fit_tracker -p fit_tracker < backend/schema.sql`
-3. **Clone repo** in `/var/www/fit-crystaltokyo/`, creare `backend/.env` (da `.env.example`, con `RP_ID`/`ORIGIN` = `fit.crystaltokyo.it`/`https://fit.crystaltokyo.it`)
+3. **Clone repo** in `/var/www/fit-crystaltokyo/`, creare `backend/.env` (da `.env.example`, con `RP_ID`/`ORIGIN` = `fit.itacavilla.it`/`https://fit.itacavilla.it`)
 4. **pm2**: `cd backend && npm install --production && pm2 start server.js --name fit-api && pm2 save`
-5. **nginx** — nuovo file `/etc/nginx/sites-available/fit.crystaltokyo.it`:
+5. **nginx** — nuovo file `/etc/nginx/sites-available/fit.itacavilla.it`:
    ```nginx
    server {
        listen 80;
-       server_name fit.crystaltokyo.it;
+       server_name fit.itacavilla.it;
 
        root /var/www/fit-crystaltokyo/frontend/dist;
        index index.html;
@@ -65,8 +65,8 @@ Alla prima apertura l'app mostra il form di **setup**: nome + `SETUP_SECRET` (qu
        }
    }
    ```
-   `ln -s /etc/nginx/sites-available/fit.crystaltokyo.it /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
-6. **SSL**: `certbot --nginx -d fit.crystaltokyo.it` (obbligatorio: WebAuthn richiede HTTPS)
+   `ln -s /etc/nginx/sites-available/fit.itacavilla.it /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
+6. **SSL**: `certbot --nginx -d fit.itacavilla.it` (obbligatorio: WebAuthn richiede HTTPS)
 7. **Build iniziale frontend**: `cd frontend && npm install && npm run build`
 
 ## Deploy continuo
