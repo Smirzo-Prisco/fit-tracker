@@ -1,0 +1,6 @@
+node_modules/
+backend/.env
+backend/uploads/esercizi/*
+!backend/uploads/esercizi/.gitkeep
+frontend/dist/
+.DS_Store

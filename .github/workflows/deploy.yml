@@ -1,0 +1,39 @@
+name: Deploy Fit Tracker
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-fit-tracker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy su server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.SSH_PATH }}
+            # Preserva .env del backend prima del reset (non è in git)
+            cp backend/.env /tmp/fit_tracker_env_backup 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/fit_tracker_env_backup backend/.env 2>/dev/null || true
+            cd ${{ secrets.SSH_PATH }}/backend
+            npm install --production
+            pm2 restart fit-api || pm2 start server.js --name fit-api
+            cd ${{ secrets.SSH_PATH }}/frontend
+            npm install
+            npm run build
