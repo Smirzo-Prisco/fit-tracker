@@ -40,6 +40,27 @@ async function getCredenzialiUtente(utenteId) {
   return rows;
 }
 
+// registrationInfo di verifyRegistrationResponse (v10) ha campi piatti, non un oggetto "credential" annidato.
+async function salvaCredenziale(utenteId, registrationInfo, transports, nomeDispositivo) {
+  const { credentialID, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp } =
+    registrationInfo;
+  await pool.query(
+    `INSERT INTO credenziali_webauthn
+      (utente_id, credential_id, public_key, counter, device_type, backed_up, transports, nome_dispositivo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      utenteId,
+      credentialID,
+      isoBase64URL.fromBuffer(credentialPublicKey),
+      counter,
+      credentialDeviceType,
+      credentialBackedUp ? 1 : 0,
+      (transports || []).join(','),
+      nomeDispositivo || null,
+    ]
+  );
+}
+
 // Stato generale: esiste già l'utente unico e almeno una passkey?
 router.get('/status', async (req, res) => {
   const utente = await getUtenteUnico();
@@ -116,21 +137,11 @@ router.post('/setup/register-verify', async (req, res) => {
     return res.status(400).json({ error: 'Verifica registrazione fallita' });
   }
 
-  const { credential: cred, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
-  await pool.query(
-    `INSERT INTO credenziali_webauthn
-      (utente_id, credential_id, public_key, counter, device_type, backed_up, transports, nome_dispositivo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      pending.utenteId,
-      cred.id,
-      isoBase64URL.fromBuffer(cred.publicKey),
-      cred.counter,
-      credentialDeviceType,
-      credentialBackedUp ? 1 : 0,
-      (cred.transports || []).join(','),
-      nomeDispositivo || null,
-    ]
+  await salvaCredenziale(
+    pending.utenteId,
+    verification.registrationInfo,
+    credential.response.transports,
+    nomeDispositivo
   );
 
   issueSessionCookie(res, pending.utenteId);
@@ -186,21 +197,11 @@ router.post('/register-verify', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Verifica registrazione fallita' });
   }
 
-  const { credential: cred, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
-  await pool.query(
-    `INSERT INTO credenziali_webauthn
-      (utente_id, credential_id, public_key, counter, device_type, backed_up, transports, nome_dispositivo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      req.utenteId,
-      cred.id,
-      isoBase64URL.fromBuffer(cred.publicKey),
-      cred.counter,
-      credentialDeviceType,
-      credentialBackedUp ? 1 : 0,
-      (cred.transports || []).join(','),
-      nomeDispositivo || null,
-    ]
+  await salvaCredenziale(
+    req.utenteId,
+    verification.registrationInfo,
+    credential.response.transports,
+    nomeDispositivo
   );
 
   res.json({ ok: true });
@@ -254,9 +255,9 @@ router.post('/login-verify', async (req, res) => {
       expectedChallenge: pending.challenge,
       expectedOrigin: ORIGIN,
       expectedRPID: RP_ID,
-      credential: {
-        id: credenziale.credential_id,
-        publicKey: isoBase64URL.toBuffer(credenziale.public_key),
+      authenticator: {
+        credentialID: credenziale.credential_id,
+        credentialPublicKey: isoBase64URL.toBuffer(credenziale.public_key),
         counter: Number(credenziale.counter),
         transports: credenziale.transports ? credenziale.transports.split(',') : undefined,
       },
