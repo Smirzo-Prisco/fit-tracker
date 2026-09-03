@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
   const setup = useCallback(
     async (nome, setupSecret) => {
       const options = await api.post('/auth/setup/register-options', { setupSecret, nome });
-      const credential = await startRegistration({ optionsJSON: options });
+      const credential = await startRegistration(options);
       await api.post('/auth/setup/register-verify', { setupSecret, credential });
       await refreshStatus();
       await refreshUtente();
@@ -46,7 +46,7 @@ export function AuthProvider({ children }) {
   const aggiungiPasskey = useCallback(
     async (nomeDispositivo) => {
       const options = await api.post('/auth/register-options', {});
-      const credential = await startRegistration({ optionsJSON: options });
+      const credential = await startRegistration(options);
       await api.post('/auth/register-verify', { credential, nomeDispositivo });
     },
     []
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async () => {
     const options = await api.post('/auth/login-options', {});
-    const credential = await startAuthentication({ optionsJSON: options });
+    const credential = await startAuthentication(options);
     await api.post('/auth/login-verify', { credential });
     await refreshUtente();
   }, [refreshUtente]);
