@@ -1,4 +1,5 @@
 node_modules/
+.last-install-hash
 backend/.env
 backend/uploads/esercizi/*
 !backend/uploads/esercizi/.gitkeep

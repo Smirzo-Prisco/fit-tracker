@@ -31,9 +31,25 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             cp /tmp/fit_tracker_env_backup backend/.env 2>/dev/null || true
+
+            # npm install è lento (registro remoto): saltalo se il lockfile non è cambiato dall'ultimo deploy
+            install_se_serve() {
+              local dir="$1"; shift
+              local marker="$dir/.last-install-hash"
+              local hash
+              hash=$(sha256sum "$dir/package-lock.json" | cut -d' ' -f1)
+              if [ -f "$marker" ] && [ "$(cat "$marker")" = "$hash" ] && [ -d "$dir/node_modules" ]; then
+                echo "[$dir] dipendenze invariate, salto npm install"
+              else
+                (cd "$dir" && npm install "$@")
+                echo "$hash" > "$marker"
+              fi
+            }
+
+            install_se_serve ${{ secrets.SSH_PATH }}/backend --production
             cd ${{ secrets.SSH_PATH }}/backend
-            npm install --production
             pm2 restart fit-api || pm2 start server.js --name fit-api
+
+            install_se_serve ${{ secrets.SSH_PATH }}/frontend
             cd ${{ secrets.SSH_PATH }}/frontend
-            npm install
             npm run build
