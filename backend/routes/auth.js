@@ -58,12 +58,19 @@ router.post('/setup/register-options', async (req, res) => {
     return res.status(403).json({ error: 'Setup secret non valido' });
   }
   const utenteEsistente = await getUtenteUnico();
+  let utenteId;
   if (utenteEsistente) {
-    return res.status(409).json({ error: 'Utente già configurato, usa /register-options autenticato' });
+    const credenzialiEsistenti = await getCredenzialiUtente(utenteEsistente.id);
+    if (credenzialiEsistenti.length > 0) {
+      return res.status(409).json({ error: 'Utente già configurato, usa /register-options autenticato' });
+    }
+    // Utente creato da un tentativo di setup precedente mai completato: lo riusiamo.
+    utenteId = utenteEsistente.id;
+    await pool.query('UPDATE utente SET nome = ? WHERE id = ?', [nome || 'Utente', utenteId]);
+  } else {
+    const [result] = await pool.query('INSERT INTO utente (nome) VALUES (?)', [nome || 'Utente']);
+    utenteId = result.insertId;
   }
-
-  const [result] = await pool.query('INSERT INTO utente (nome) VALUES (?)', [nome || 'Utente']);
-  const utenteId = result.insertId;
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
