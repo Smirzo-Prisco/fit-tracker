@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
+import { formattaData } from '../lib/date';
 
 function inizioSettimana() {
   const oggi = new Date();
@@ -30,7 +31,7 @@ export default function Dashboard() {
       [...misurazioni]
         .filter((m) => m.peso_kg != null)
         .reverse()
-        .map((m) => ({ data: m.data, peso: Number(m.peso_kg) })),
+        .map((m) => ({ data: formattaData(m.data), peso: Number(m.peso_kg) })),
     [misurazioni]
   );
 
@@ -53,7 +54,7 @@ export default function Dashboard() {
             {ultimaMisurazione?.peso_kg ? `${ultimaMisurazione.peso_kg} kg` : '—'}
           </span>
           <span className="card__sotto">
-            {ultimaMisurazione ? `aggiornato il ${ultimaMisurazione.data}` : 'nessuna misurazione'}
+            {ultimaMisurazione ? `aggiornato il ${formattaData(ultimaMisurazione.data)}` : 'nessuna misurazione'}
           </span>
         </div>
         <div className="card">

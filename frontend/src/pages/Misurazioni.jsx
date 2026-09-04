@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
+import { formattaData } from '../lib/date';
 
 const CIRCONFERENZE = [
   { chiave: 'braccio_cm', etichetta: 'Braccio' },
@@ -64,7 +65,7 @@ export default function Misurazioni() {
       [...lista]
         .filter((m) => m[campoGrafico] != null)
         .reverse()
-        .map((m) => ({ data: m.data, valore: Number(m[campoGrafico]) })),
+        .map((m) => ({ data: formattaData(m.data), valore: Number(m[campoGrafico]) })),
     [lista, campoGrafico]
   );
 
@@ -153,7 +154,7 @@ export default function Misurazioni() {
           {lista.map((m) => (
             <li key={m.id} className="lista-misurazioni__riga">
               <div>
-                <strong>{m.data}</strong>
+                <strong>{formattaData(m.data)}</strong>
                 <span className="testo-secondario">
                   {m.peso_kg ? ` · ${m.peso_kg} kg` : ''}
                 </span>

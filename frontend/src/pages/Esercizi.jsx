@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
+import { formattaData } from '../lib/date';
 
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
@@ -42,7 +43,7 @@ export default function Esercizi() {
     setErroreModifica('');
     api.get(`/esercizi/${selezionato.id}/progressione`).then((dati) => {
       setProgressione(
-        dati.filter((d) => d.peso_kg != null).map((d) => ({ data: d.data, peso: Number(d.peso_kg) }))
+        dati.filter((d) => d.peso_kg != null).map((d) => ({ data: formattaData(d.data), peso: Number(d.peso_kg) }))
       );
     });
   }, [selezionato]);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formattaData } from '../lib/date';
 
 export default function Allenamenti() {
   const [lista, setLista] = useState([]);
@@ -39,7 +40,7 @@ export default function Allenamenti() {
         {lista.map((a) => (
           <li key={a.id} className="pannello lista-allenamenti__riga">
             <Link to={`/allenamenti/${a.id}/modifica`} className="lista-allenamenti__link">
-              <strong>{a.data}</strong>
+              <strong>{formattaData(a.data)}</strong>
               <span className="testo-secondario">
                 {a.numero_esercizi} esercizi{a.durata_min ? ` · ${a.durata_min} min` : ''}
               </span>
