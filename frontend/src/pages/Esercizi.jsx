@@ -7,10 +7,13 @@ export default function Esercizi() {
   const [caricamento, setCaricamento] = useState(true);
   const [nome, setNome] = useState('');
   const [immagineUrl, setImmagineUrl] = useState('');
+  const [gruppoMuscolare, setGruppoMuscolare] = useState('');
   const [caricamentoImmagine, setCaricamentoImmagine] = useState(false);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
   const [selezionato, setSelezionato] = useState(null);
+  const [gruppoModifica, setGruppoModifica] = useState('');
+  const [salvataggioGruppo, setSalvataggioGruppo] = useState(false);
   const [progressione, setProgressione] = useState([]);
   const fileInputRef = useRef(null);
 
@@ -26,6 +29,7 @@ export default function Esercizi() {
 
   useEffect(() => {
     if (!selezionato) return;
+    setGruppoModifica(selezionato.gruppo_muscolare || '');
     api.get(`/esercizi/${selezionato.id}/progressione`).then((dati) => {
       setProgressione(
         dati.filter((d) => d.peso_kg != null).map((d) => ({ data: d.data, peso: Number(d.peso_kg) }))
@@ -52,14 +56,31 @@ export default function Esercizi() {
     setErrore('');
     setSalvataggio(true);
     try {
-      await api.post('/esercizi', { nome, immagine_url: immagineUrl || null });
+      await api.post('/esercizi', { nome, immagine_url: immagineUrl || null, gruppo_muscolare: gruppoMuscolare || null });
       setNome('');
       setImmagineUrl('');
+      setGruppoMuscolare('');
       await ricarica();
     } catch (err) {
       setErrore(err.message);
     } finally {
       setSalvataggio(false);
+    }
+  }
+
+  async function salvaGruppoMuscolare() {
+    setSalvataggioGruppo(true);
+    try {
+      await api.put(`/esercizi/${selezionato.id}`, {
+        nome: selezionato.nome,
+        immagine_url: selezionato.immagine_url,
+        gruppo_muscolare: gruppoModifica || null,
+      });
+      const aggiornato = { ...selezionato, gruppo_muscolare: gruppoModifica || null };
+      setSelezionato(aggiornato);
+      setCatalogo((prev) => prev.map((e) => (e.id === aggiornato.id ? aggiornato : e)));
+    } finally {
+      setSalvataggioGruppo(false);
     }
   }
 
@@ -99,6 +120,11 @@ export default function Esercizi() {
               onChange={(e) => setNome(e.target.value)}
               required
             />
+            <input
+              placeholder="Muscoli allenati (es. Petto, Tricipiti)"
+              value={gruppoMuscolare}
+              onChange={(e) => setGruppoMuscolare(e.target.value)}
+            />
           </div>
         </div>
         {errore && <p className="messaggio-errore">{errore}</p>}
@@ -118,7 +144,10 @@ export default function Esercizi() {
               onClick={() => setSelezionato(e)}
             >
               {e.immagine_url && <img src={e.immagine_url} alt="" />}
-              {e.nome} · {e.volte_usato}x
+              {e.nome}
+              {e.gruppo_muscolare && <span className="chip__dettaglio"> · {e.gruppo_muscolare}</span>}
+              {' · '}
+              {e.volte_usato}x
             </button>
           ))}
         </div>
@@ -135,6 +164,21 @@ export default function Esercizi() {
               title={selezionato.volte_usato > 0 ? 'Già usato in un allenamento' : 'Elimina'}
             >
               Elimina
+            </button>
+          </div>
+          <div className="riga-gruppo-muscolare">
+            <input
+              placeholder="Muscoli allenati (es. Petto, Tricipiti)"
+              value={gruppoModifica}
+              onChange={(e) => setGruppoModifica(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn--secondario btn--piccolo"
+              onClick={salvaGruppoMuscolare}
+              disabled={salvataggioGruppo || gruppoModifica === (selezionato.gruppo_muscolare || '')}
+            >
+              {salvataggioGruppo ? 'Salvataggio…' : 'Salva'}
             </button>
           </div>
           {progressione.length > 1 ? (

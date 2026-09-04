@@ -564,3 +564,17 @@ textarea:focus {
   border-color: var(--colore-primario);
   color: var(--colore-primario);
 }
+
+.chip__dettaglio {
+  color: var(--colore-testo-secondario);
+}
+
+.riga-gruppo-muscolare {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--spaziatura);
+}
+
+.riga-gruppo-muscolare input {
+  flex: 1;
+}
