@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Misurazioni from './pages/Misurazioni.jsx';
 import Allenamenti from './pages/Allenamenti.jsx';
 import NuovoAllenamento from './pages/NuovoAllenamento.jsx';
-import StoricoEsercizi from './pages/StoricoEsercizi.jsx';
+import Esercizi from './pages/Esercizi.jsx';
 import Profilo from './pages/Profilo.jsx';
 
 function RottaProtetta({ children }) {
@@ -33,7 +33,7 @@ export default function App() {
         <Route path="allenamenti" element={<Allenamenti />} />
         <Route path="allenamenti/nuovo" element={<NuovoAllenamento />} />
         <Route path="allenamenti/:id/modifica" element={<NuovoAllenamento />} />
-        <Route path="esercizi" element={<StoricoEsercizi />} />
+        <Route path="esercizi" element={<Esercizi />} />
         <Route path="profilo" element={<Profilo />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

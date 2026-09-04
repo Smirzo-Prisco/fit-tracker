@@ -1,21 +1,26 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
-const RIGA_VUOTA = { nome: '', immagine_url: '', serie: '', ripetizioni: '', peso_kg: '' };
+const RIGA_VUOTA = { esercizio_id: '', serie: '', ripetizioni: '', peso_kg: '' };
 
 export default function NuovoAllenamento() {
   const { id } = useParams();
   const navigate = useNavigate();
   const inModifica = Boolean(id);
 
+  const [catalogo, setCatalogo] = useState(null);
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [durataMin, setDurataMin] = useState('');
   const [note, setNote] = useState('');
   const [esercizi, setEsercizi] = useState([{ ...RIGA_VUOTA }]);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
+
+  useEffect(() => {
+    api.get('/esercizi').then(setCatalogo);
+  }, []);
 
   useEffect(() => {
     if (!inModifica) return;
@@ -27,8 +32,7 @@ export default function NuovoAllenamento() {
       setEsercizi(
         a.esercizi.length
           ? a.esercizi.map((e) => ({
-              nome: e.nome,
-              immagine_url: e.immagine_url || '',
+              esercizio_id: e.esercizio_id,
               serie: e.serie ?? '',
               ripetizioni: e.ripetizioni ?? '',
               peso_kg: e.peso_kg ?? '',
@@ -59,7 +63,7 @@ export default function NuovoAllenamento() {
       durata_min: durataMin || null,
       note,
       esercizi: esercizi
-        .filter((ex) => ex.nome.trim())
+        .filter((ex) => ex.esercizio_id)
         .map((ex) => ({
           ...ex,
           serie: ex.serie || null,
@@ -79,6 +83,24 @@ export default function NuovoAllenamento() {
     } finally {
       setSalvataggio(false);
     }
+  }
+
+  if (catalogo === null) {
+    return <div className="loading-schermo">Caricamento…</div>;
+  }
+
+  if (catalogo.length === 0) {
+    return (
+      <div className="pagina">
+        <h1>{inModifica ? 'Modifica allenamento' : 'Nuovo allenamento'}</h1>
+        <p className="testo-secondario">
+          Non hai ancora nessun esercizio nel catalogo. Creane almeno uno prima di comporre un allenamento.
+        </p>
+        <Link to="/esercizi" className="btn btn--primario">
+          Vai a Esercizi
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -107,6 +129,7 @@ export default function NuovoAllenamento() {
             <RigaEsercizio
               key={i}
               esercizio={ex}
+              catalogo={catalogo}
               onChange={(patch) => aggiornaEsercizio(i, patch)}
               onRemove={() => rimuoviEsercizio(i)}
             />

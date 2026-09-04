@@ -47,15 +47,23 @@ CREATE TABLE IF NOT EXISTS allenamenti (
   INDEX idx_allenamenti_utente_data (utente_id, data)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS esercizi (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  nome VARCHAR(150) NOT NULL UNIQUE,
+  immagine_url VARCHAR(255),
+  gruppo_muscolare VARCHAR(100),
+  creato_il DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS allenamento_esercizi (
   id INT PRIMARY KEY AUTO_INCREMENT,
   allenamento_id INT NOT NULL,
-  nome VARCHAR(150) NOT NULL,
-  immagine_url VARCHAR(255),
+  esercizio_id INT NOT NULL,
   serie INT,
   ripetizioni INT,
   peso_kg DECIMAL(6,2),
   ordine INT NOT NULL DEFAULT 0,
   FOREIGN KEY (allenamento_id) REFERENCES allenamenti(id) ON DELETE CASCADE,
-  INDEX idx_allenamento_esercizi_nome (nome)
+  FOREIGN KEY (esercizio_id) REFERENCES esercizi(id) ON DELETE RESTRICT,
+  INDEX idx_allenamento_esercizi_esercizio (esercizio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
