@@ -11,11 +11,18 @@ export default function Esercizi() {
   const [caricamentoImmagine, setCaricamentoImmagine] = useState(false);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
+
   const [selezionato, setSelezionato] = useState(null);
-  const [gruppoModifica, setGruppoModifica] = useState('');
-  const [salvataggioGruppo, setSalvataggioGruppo] = useState(false);
+  const [modificaNome, setModificaNome] = useState('');
+  const [modificaImmagineUrl, setModificaImmagineUrl] = useState('');
+  const [modificaGruppo, setModificaGruppo] = useState('');
+  const [caricamentoImmagineModifica, setCaricamentoImmagineModifica] = useState(false);
+  const [salvataggioModifica, setSalvataggioModifica] = useState(false);
+  const [erroreModifica, setErroreModifica] = useState('');
   const [progressione, setProgressione] = useState([]);
+
   const fileInputRef = useRef(null);
+  const fileInputModificaRef = useRef(null);
 
   async function ricarica() {
     const lista = await api.get('/esercizi');
@@ -29,7 +36,10 @@ export default function Esercizi() {
 
   useEffect(() => {
     if (!selezionato) return;
-    setGruppoModifica(selezionato.gruppo_muscolare || '');
+    setModificaNome(selezionato.nome);
+    setModificaImmagineUrl(selezionato.immagine_url || '');
+    setModificaGruppo(selezionato.gruppo_muscolare || '');
+    setErroreModifica('');
     api.get(`/esercizi/${selezionato.id}/progressione`).then((dati) => {
       setProgressione(
         dati.filter((d) => d.peso_kg != null).map((d) => ({ data: d.data, peso: Number(d.peso_kg) }))
@@ -37,17 +47,15 @@ export default function Esercizi() {
     });
   }, [selezionato]);
 
-  async function gestisciFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setCaricamentoImmagine(true);
+  async function caricaImmagine(file, onFatto, setCaricamento) {
+    setCaricamento(true);
     try {
       const formData = new FormData();
       formData.append('immagine', file);
       const risultato = await api.post('/esercizi/upload-immagine', formData);
-      setImmagineUrl(risultato.immagine_url);
+      onFatto(risultato.immagine_url);
     } finally {
-      setCaricamentoImmagine(false);
+      setCaricamento(false);
     }
   }
 
@@ -56,7 +64,11 @@ export default function Esercizi() {
     setErrore('');
     setSalvataggio(true);
     try {
-      await api.post('/esercizi', { nome, immagine_url: immagineUrl || null, gruppo_muscolare: gruppoMuscolare || null });
+      await api.post('/esercizi', {
+        nome,
+        immagine_url: immagineUrl || null,
+        gruppo_muscolare: gruppoMuscolare || null,
+      });
       setNome('');
       setImmagineUrl('');
       setGruppoMuscolare('');
@@ -68,32 +80,46 @@ export default function Esercizi() {
     }
   }
 
-  async function salvaGruppoMuscolare() {
-    setSalvataggioGruppo(true);
+  async function salvaModifiche() {
+    setErroreModifica('');
+    setSalvataggioModifica(true);
     try {
       await api.put(`/esercizi/${selezionato.id}`, {
-        nome: selezionato.nome,
-        immagine_url: selezionato.immagine_url,
-        gruppo_muscolare: gruppoModifica || null,
+        nome: modificaNome,
+        immagine_url: modificaImmagineUrl || null,
+        gruppo_muscolare: modificaGruppo || null,
       });
-      const aggiornato = { ...selezionato, gruppo_muscolare: gruppoModifica || null };
+      const aggiornato = {
+        ...selezionato,
+        nome: modificaNome,
+        immagine_url: modificaImmagineUrl || null,
+        gruppo_muscolare: modificaGruppo || null,
+      };
       setSelezionato(aggiornato);
       setCatalogo((prev) => prev.map((e) => (e.id === aggiornato.id ? aggiornato : e)));
+    } catch (err) {
+      setErroreModifica(err.message);
     } finally {
-      setSalvataggioGruppo(false);
+      setSalvataggioModifica(false);
     }
   }
 
   async function elimina(id) {
-    setErrore('');
+    setErroreModifica('');
     try {
       await api.del(`/esercizi/${id}`);
       if (selezionato?.id === id) setSelezionato(null);
       await ricarica();
     } catch (err) {
-      setErrore(err.message);
+      setErroreModifica(err.message);
     }
   }
+
+  const modificheInSospeso =
+    selezionato &&
+    (modificaNome !== selezionato.nome ||
+      modificaImmagineUrl !== (selezionato.immagine_url || '') ||
+      modificaGruppo !== (selezionato.gruppo_muscolare || ''));
 
   if (caricamento) return <div className="loading-schermo">Caricamento…</div>;
 
@@ -111,7 +137,13 @@ export default function Esercizi() {
               <span className="riga-esercizio__placeholder">📷</span>
             )}
             {caricamentoImmagine && <span className="riga-esercizio__caricamento">…</span>}
-            <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={gestisciFile} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => e.target.files[0] && caricaImmagine(e.target.files[0], setImmagineUrl, setCaricamentoImmagine)}
+            />
           </div>
           <div className="riga-esercizio__campi">
             <input
@@ -156,7 +188,7 @@ export default function Esercizi() {
       {selezionato && (
         <div className="pannello">
           <div className="pannello__header">
-            <h2>{selezionato.nome}</h2>
+            <h2>Modifica esercizio</h2>
             <button
               className="btn btn--testo"
               onClick={() => elimina(selezionato.id)}
@@ -166,21 +198,46 @@ export default function Esercizi() {
               Elimina
             </button>
           </div>
-          <div className="riga-gruppo-muscolare">
-            <input
-              placeholder="Muscoli allenati (es. Petto, Tricipiti)"
-              value={gruppoModifica}
-              onChange={(e) => setGruppoModifica(e.target.value)}
-            />
-            <button
-              type="button"
-              className="btn btn--secondario btn--piccolo"
-              onClick={salvaGruppoMuscolare}
-              disabled={salvataggioGruppo || gruppoModifica === (selezionato.gruppo_muscolare || '')}
-            >
-              {salvataggioGruppo ? 'Salvataggio…' : 'Salva'}
-            </button>
+
+          <div className="riga-esercizio">
+            <div className="riga-esercizio__immagine" onClick={() => fileInputModificaRef.current?.click()}>
+              {modificaImmagineUrl ? (
+                <img src={modificaImmagineUrl} alt="" />
+              ) : (
+                <span className="riga-esercizio__placeholder">📷</span>
+              )}
+              {caricamentoImmagineModifica && <span className="riga-esercizio__caricamento">…</span>}
+              <input
+                ref={fileInputModificaRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) =>
+                  e.target.files[0] &&
+                  caricaImmagine(e.target.files[0], setModificaImmagineUrl, setCaricamentoImmagineModifica)
+                }
+              />
+            </div>
+            <div className="riga-esercizio__campi">
+              <input value={modificaNome} onChange={(e) => setModificaNome(e.target.value)} required />
+              <input
+                placeholder="Muscoli allenati (es. Petto, Tricipiti)"
+                value={modificaGruppo}
+                onChange={(e) => setModificaGruppo(e.target.value)}
+              />
+            </div>
           </div>
+
+          {erroreModifica && <p className="messaggio-errore">{erroreModifica}</p>}
+          <button
+            type="button"
+            className="btn btn--secondario btn--piccolo"
+            onClick={salvaModifiche}
+            disabled={salvataggioModifica || !modificheInSospeso}
+          >
+            {salvataggioModifica ? 'Salvataggio…' : 'Salva modifiche'}
+          </button>
+
           {progressione.length > 1 ? (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={progressione}>
