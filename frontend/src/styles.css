@@ -408,8 +408,13 @@ textarea:focus {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 6px;
   min-width: 0;
+}
+
+.riga-esercizio__nome-fisso {
+  font-weight: 600;
 }
 
 /* --- Blocco esercizio + serie multiple (form allenamento) --- */

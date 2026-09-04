@@ -6,6 +6,18 @@ const asyncHandler = require('../middleware/asyncHandler');
 const router = express.Router();
 router.use(requireAuth);
 
+// Verifica che l'allenamento_esercizio indicato appartenga a un allenamento dell'utente,
+// e restituisce l'allenamento_id per comodità (evita un giro extra di query ai chiamanti).
+async function trovaAllenamentoEsercizio(utenteId, allenamentoId, aeId) {
+  const [rows] = await pool.query(
+    `SELECT ae.id FROM allenamento_esercizi ae
+     JOIN allenamenti a ON a.id = ae.allenamento_id
+     WHERE ae.id = ? AND ae.allenamento_id = ? AND a.utente_id = ?`,
+    [aeId, allenamentoId, utenteId]
+  );
+  return rows[0] || null;
+}
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -61,73 +73,32 @@ router.get(
   })
 );
 
-async function salvaEsercizi(connection, allenamentoId, esercizi) {
-  if (!Array.isArray(esercizi)) return;
-  for (let i = 0; i < esercizi.length; i += 1) {
-    const e = esercizi[i];
-    const [result] = await connection.query(
-      'INSERT INTO allenamento_esercizi (allenamento_id, esercizio_id, ordine) VALUES (?, ?, ?)',
-      [allenamentoId, e.esercizio_id, i]
-    );
-    const allenamentoEsercizioId = result.insertId;
-    const serie = Array.isArray(e.serie) ? e.serie : [];
-    for (let s = 0; s < serie.length; s += 1) {
-      await connection.query(
-        'INSERT INTO serie (allenamento_esercizio_id, numero_serie, ripetizioni, peso_kg) VALUES (?, ?, ?, ?)',
-        [allenamentoEsercizioId, s + 1, serie[s].ripetizioni || null, serie[s].peso_kg || null]
-      );
-    }
-  }
-}
-
+// Crea l'allenamento con solo la data (di norma chiamata subito all'apertura di "Nuovo allenamento",
+// così ogni azione successiva ha già un id su cui salvare istantaneamente).
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { data, durata_min, note, scheda_id, esercizi } = req.body;
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      const [result] = await connection.query(
-        'INSERT INTO allenamenti (utente_id, scheda_id, data, durata_min, note) VALUES (?, ?, ?, ?, ?)',
-        [req.utenteId, scheda_id || null, data, durata_min || null, note || null]
-      );
-      await salvaEsercizi(connection, result.insertId, esercizi);
-      await connection.commit();
-      res.status(201).json({ id: result.insertId });
-    } catch (err) {
-      await connection.rollback();
-      res.status(500).json({ error: err.message });
-    } finally {
-      connection.release();
-    }
+    const { data, durata_min, note, scheda_id } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO allenamenti (utente_id, scheda_id, data, durata_min, note) VALUES (?, ?, ?, ?, ?)',
+      [req.utenteId, scheda_id || null, data, durata_min || null, note || null]
+    );
+    res.status(201).json({ id: result.insertId });
   })
 );
 
 router.put(
   '/:id',
   asyncHandler(async (req, res) => {
-    const { data, durata_min, note, scheda_id, esercizi } = req.body;
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      const [result] = await connection.query(
-        'UPDATE allenamenti SET data = ?, durata_min = ?, note = ?, scheda_id = ? WHERE id = ? AND utente_id = ?',
-        [data, durata_min || null, note || null, scheda_id || null, req.params.id, req.utenteId]
-      );
-      if (result.affectedRows === 0) {
-        await connection.rollback();
-        return res.status(404).json({ error: 'Allenamento non trovato' });
-      }
-      await connection.query('DELETE FROM allenamento_esercizi WHERE allenamento_id = ?', [req.params.id]);
-      await salvaEsercizi(connection, req.params.id, esercizi);
-      await connection.commit();
-      res.json({ ok: true });
-    } catch (err) {
-      await connection.rollback();
-      res.status(500).json({ error: err.message });
-    } finally {
-      connection.release();
+    const { data, durata_min, note, scheda_id } = req.body;
+    const [result] = await pool.query(
+      'UPDATE allenamenti SET data = ?, durata_min = ?, note = ?, scheda_id = ? WHERE id = ? AND utente_id = ?',
+      [data, durata_min || null, note || null, scheda_id || null, req.params.id, req.utenteId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Allenamento non trovato' });
     }
+    res.json({ ok: true });
   })
 );
 
@@ -135,6 +106,100 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     await pool.query('DELETE FROM allenamenti WHERE id = ? AND utente_id = ?', [req.params.id, req.utenteId]);
+    res.json({ ok: true });
+  })
+);
+
+// --- Esercizi dell'allenamento (aggiunti/rimossi uno alla volta, salvataggio istantaneo) ---
+
+router.post(
+  '/:id/esercizi',
+  asyncHandler(async (req, res) => {
+    const [allenamentoRows] = await pool.query('SELECT id FROM allenamenti WHERE id = ? AND utente_id = ?', [
+      req.params.id,
+      req.utenteId,
+    ]);
+    if (!allenamentoRows[0]) {
+      return res.status(404).json({ error: 'Allenamento non trovato' });
+    }
+    const [[{ conteggio }]] = await pool.query(
+      'SELECT COUNT(*) AS conteggio FROM allenamento_esercizi WHERE allenamento_id = ?',
+      [req.params.id]
+    );
+    const [result] = await pool.query(
+      'INSERT INTO allenamento_esercizi (allenamento_id, esercizio_id, ordine) VALUES (?, ?, ?)',
+      [req.params.id, req.body.esercizio_id, conteggio]
+    );
+    const [esercizioRows] = await pool.query('SELECT nome, immagine_url FROM esercizi WHERE id = ?', [
+      req.body.esercizio_id,
+    ]);
+    res.status(201).json({
+      id: result.insertId,
+      esercizio_id: req.body.esercizio_id,
+      ordine: conteggio,
+      serie: [],
+      ...esercizioRows[0],
+    });
+  })
+);
+
+router.delete(
+  '/:id/esercizi/:aeId',
+  asyncHandler(async (req, res) => {
+    const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
+    if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
+    await pool.query('DELETE FROM allenamento_esercizi WHERE id = ?', [req.params.aeId]);
+    res.json({ ok: true });
+  })
+);
+
+// --- Serie di un esercizio (una riga per set, salvataggio istantaneo su blur del campo) ---
+
+router.post(
+  '/:id/esercizi/:aeId/serie',
+  asyncHandler(async (req, res) => {
+    const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
+    if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
+
+    const { ripetizioni, peso_kg } = req.body;
+    const [[{ conteggio }]] = await pool.query(
+      'SELECT COUNT(*) AS conteggio FROM serie WHERE allenamento_esercizio_id = ?',
+      [req.params.aeId]
+    );
+    const [result] = await pool.query(
+      'INSERT INTO serie (allenamento_esercizio_id, numero_serie, ripetizioni, peso_kg) VALUES (?, ?, ?, ?)',
+      [req.params.aeId, conteggio + 1, ripetizioni || null, peso_kg || null]
+    );
+    res.status(201).json({ id: result.insertId, numero_serie: conteggio + 1 });
+  })
+);
+
+router.put(
+  '/:id/esercizi/:aeId/serie/:serieId',
+  asyncHandler(async (req, res) => {
+    const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
+    if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
+
+    const { ripetizioni, peso_kg } = req.body;
+    await pool.query('UPDATE serie SET ripetizioni = ?, peso_kg = ? WHERE id = ? AND allenamento_esercizio_id = ?', [
+      ripetizioni || null,
+      peso_kg || null,
+      req.params.serieId,
+      req.params.aeId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+router.delete(
+  '/:id/esercizi/:aeId/serie/:serieId',
+  asyncHandler(async (req, res) => {
+    const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
+    if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
+    await pool.query('DELETE FROM serie WHERE id = ? AND allenamento_esercizio_id = ?', [
+      req.params.serieId,
+      req.params.aeId,
+    ]);
     res.json({ ok: true });
   })
 );
