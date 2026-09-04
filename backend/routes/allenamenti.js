@@ -41,7 +41,23 @@ router.get(
        ORDER BY ae.ordine ASC, ae.id ASC`,
       [allenamento.id]
     );
-    res.json({ ...allenamento, esercizi });
+
+    let serieMap = {};
+    if (esercizi.length > 0) {
+      const [serieRows] = await pool.query(
+        `SELECT * FROM serie WHERE allenamento_esercizio_id IN (?) ORDER BY numero_serie ASC`,
+        [esercizi.map((e) => e.id)]
+      );
+      serieMap = serieRows.reduce((acc, s) => {
+        (acc[s.allenamento_esercizio_id] ||= []).push(s);
+        return acc;
+      }, {});
+    }
+
+    res.json({
+      ...allenamento,
+      esercizi: esercizi.map((e) => ({ ...e, serie: serieMap[e.id] || [] })),
+    });
   })
 );
 
@@ -49,25 +65,31 @@ async function salvaEsercizi(connection, allenamentoId, esercizi) {
   if (!Array.isArray(esercizi)) return;
   for (let i = 0; i < esercizi.length; i += 1) {
     const e = esercizi[i];
-    await connection.query(
-      `INSERT INTO allenamento_esercizi
-        (allenamento_id, esercizio_id, serie, ripetizioni, peso_kg, ordine)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [allenamentoId, e.esercizio_id, e.serie || null, e.ripetizioni || null, e.peso_kg || null, i]
+    const [result] = await connection.query(
+      'INSERT INTO allenamento_esercizi (allenamento_id, esercizio_id, ordine) VALUES (?, ?, ?)',
+      [allenamentoId, e.esercizio_id, i]
     );
+    const allenamentoEsercizioId = result.insertId;
+    const serie = Array.isArray(e.serie) ? e.serie : [];
+    for (let s = 0; s < serie.length; s += 1) {
+      await connection.query(
+        'INSERT INTO serie (allenamento_esercizio_id, numero_serie, ripetizioni, peso_kg) VALUES (?, ?, ?, ?)',
+        [allenamentoEsercizioId, s + 1, serie[s].ripetizioni || null, serie[s].peso_kg || null]
+      );
+    }
   }
 }
 
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { data, durata_min, note, esercizi } = req.body;
+    const { data, durata_min, note, scheda_id, esercizi } = req.body;
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       const [result] = await connection.query(
-        'INSERT INTO allenamenti (utente_id, data, durata_min, note) VALUES (?, ?, ?, ?)',
-        [req.utenteId, data, durata_min || null, note || null]
+        'INSERT INTO allenamenti (utente_id, scheda_id, data, durata_min, note) VALUES (?, ?, ?, ?, ?)',
+        [req.utenteId, scheda_id || null, data, durata_min || null, note || null]
       );
       await salvaEsercizi(connection, result.insertId, esercizi);
       await connection.commit();
@@ -84,13 +106,13 @@ router.post(
 router.put(
   '/:id',
   asyncHandler(async (req, res) => {
-    const { data, durata_min, note, esercizi } = req.body;
+    const { data, durata_min, note, scheda_id, esercizi } = req.body;
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       const [result] = await connection.query(
-        'UPDATE allenamenti SET data = ?, durata_min = ?, note = ? WHERE id = ? AND utente_id = ?',
-        [data, durata_min || null, note || null, req.params.id, req.utenteId]
+        'UPDATE allenamenti SET data = ?, durata_min = ?, note = ?, scheda_id = ? WHERE id = ? AND utente_id = ?',
+        [data, durata_min || null, note || null, scheda_id || null, req.params.id, req.utenteId]
       );
       if (result.affectedRows === 0) {
         await connection.rollback();

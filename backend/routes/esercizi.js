@@ -112,16 +112,17 @@ router.delete(
   })
 );
 
-// Progressione peso/ripetizioni nel tempo per un esercizio del catalogo
+// Progressione peso/ripetizioni nel tempo per un esercizio del catalogo (tutte le serie di ogni sessione)
 router.get(
   '/:id/progressione',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.query(
-      `SELECT a.data, ae.serie, ae.ripetizioni, ae.peso_kg
-       FROM allenamento_esercizi ae
+      `SELECT a.data, s.numero_serie, s.ripetizioni, s.peso_kg
+       FROM serie s
+       JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
        JOIN allenamenti a ON a.id = ae.allenamento_id
        WHERE a.utente_id = ? AND ae.esercizio_id = ?
-       ORDER BY a.data ASC, ae.id ASC`,
+       ORDER BY a.data ASC, s.numero_serie ASC`,
       [req.utenteId, req.params.id]
     );
     res.json(rows);

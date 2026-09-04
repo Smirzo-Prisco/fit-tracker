@@ -10,6 +10,7 @@ const profiloRoutes = require('./routes/profilo');
 const misurazioniRoutes = require('./routes/misurazioni');
 const allenamentiRoutes = require('./routes/allenamenti');
 const eserciziRoutes = require('./routes/esercizi');
+const schedeRoutes = require('./routes/schede');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/api/profilo', profiloRoutes);
 app.use('/api/misurazioni', misurazioniRoutes);
 app.use('/api/allenamenti', allenamentiRoutes);
 app.use('/api/esercizi', eserciziRoutes);
+app.use('/api/schede', schedeRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

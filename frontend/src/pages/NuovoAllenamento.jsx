@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
-const RIGA_VUOTA = { esercizio_id: '', serie: '', ripetizioni: '', peso_kg: '' };
+const RIGA_VUOTA = () => ({ esercizio_id: '', serie: [{ ripetizioni: '', peso_kg: '' }] });
 
 export default function NuovoAllenamento() {
   const { id } = useParams();
@@ -11,15 +11,18 @@ export default function NuovoAllenamento() {
   const inModifica = Boolean(id);
 
   const [catalogo, setCatalogo] = useState(null);
+  const [schede, setSchede] = useState([]);
+  const [schedaId, setSchedaId] = useState('');
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [durataMin, setDurataMin] = useState('');
   const [note, setNote] = useState('');
-  const [esercizi, setEsercizi] = useState([{ ...RIGA_VUOTA }]);
+  const [esercizi, setEsercizi] = useState([RIGA_VUOTA()]);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
 
   useEffect(() => {
     api.get('/esercizi').then(setCatalogo);
+    api.get('/schede').then(setSchede);
   }, []);
 
   useEffect(() => {
@@ -29,18 +32,30 @@ export default function NuovoAllenamento() {
       setData(a.data);
       setDurataMin(a.durata_min || '');
       setNote(a.note || '');
+      setSchedaId(a.scheda_id || '');
       setEsercizi(
         a.esercizi.length
           ? a.esercizi.map((e) => ({
               esercizio_id: e.esercizio_id,
-              serie: e.serie ?? '',
-              ripetizioni: e.ripetizioni ?? '',
-              peso_kg: e.peso_kg ?? '',
+              serie: e.serie.length
+                ? e.serie.map((s) => ({ ripetizioni: s.ripetizioni ?? '', peso_kg: s.peso_kg ?? '' }))
+                : [{ ripetizioni: '', peso_kg: '' }],
             }))
-          : [{ ...RIGA_VUOTA }]
+          : [RIGA_VUOTA()]
       );
     })();
   }, [id, inModifica]);
+
+  async function caricaDaScheda(nuovoSchedaId) {
+    setSchedaId(nuovoSchedaId);
+    if (!nuovoSchedaId) return;
+    const scheda = await api.get(`/schede/${nuovoSchedaId}`);
+    setEsercizi(
+      scheda.esercizi.length
+        ? scheda.esercizi.map((e) => ({ esercizio_id: e.esercizio_id, serie: [{ ripetizioni: '', peso_kg: '' }] }))
+        : [RIGA_VUOTA()]
+    );
+  }
 
   function aggiornaEsercizio(indice, patch) {
     setEsercizi((prev) => prev.map((e, i) => (i === indice ? { ...e, ...patch } : e)));
@@ -51,7 +66,7 @@ export default function NuovoAllenamento() {
   }
 
   function aggiungiEsercizio() {
-    setEsercizi((prev) => [...prev, { ...RIGA_VUOTA }]);
+    setEsercizi((prev) => [...prev, RIGA_VUOTA()]);
   }
 
   async function invia(e) {
@@ -62,13 +77,14 @@ export default function NuovoAllenamento() {
       data,
       durata_min: durataMin || null,
       note,
+      scheda_id: schedaId || null,
       esercizi: esercizi
         .filter((ex) => ex.esercizio_id)
         .map((ex) => ({
-          ...ex,
-          serie: ex.serie || null,
-          ripetizioni: ex.ripetizioni || null,
-          peso_kg: ex.peso_kg || null,
+          esercizio_id: ex.esercizio_id,
+          serie: ex.serie
+            .filter((s) => s.ripetizioni || s.peso_kg)
+            .map((s) => ({ ripetizioni: s.ripetizioni || null, peso_kg: s.peso_kg || null })),
         })),
     };
     try {
@@ -108,6 +124,20 @@ export default function NuovoAllenamento() {
       <h1>{inModifica ? 'Modifica allenamento' : 'Nuovo allenamento'}</h1>
 
       <form onSubmit={invia} className="form">
+        {schede.length > 0 && (
+          <label>
+            Carica da scheda (opzionale)
+            <select value={schedaId} onChange={(e) => caricaDaScheda(e.target.value)}>
+              <option value="">— Nessuna —</option>
+              {schede.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome} ({s.numero_esercizi} esercizi)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <div className="griglia-campi">
           <label>
             Data

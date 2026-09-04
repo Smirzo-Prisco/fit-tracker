@@ -412,15 +412,113 @@ textarea:focus {
   min-width: 0;
 }
 
-.riga-esercizio__numeri {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* --- Blocco esercizio + serie multiple (form allenamento) --- */
+
+.blocco-esercizio {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
-.riga-esercizio__numeri input {
+.lista-serie {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 66px;
+}
+
+.riga-serie {
+  display: grid;
+  grid-template-columns: 20px 1fr 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.riga-serie__numero {
+  color: var(--colore-testo-secondario);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.riga-serie input {
   padding: 8px;
   font-size: 0.9rem;
+}
+
+.riga-serie__rimuovi {
+  background: transparent;
+  border: none;
+  color: var(--colore-testo-secondario);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.btn--piccolo {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  align-self: flex-start;
+  margin-left: 66px;
+}
+
+/* --- Schede --- */
+
+.link-schede {
+  display: inline-block;
+  text-decoration: none;
+  margin-bottom: var(--spaziatura);
+}
+
+.lista-scheda-esercizi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.riga-scheda-esercizio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--colore-pannello);
+  border: 1px solid var(--colore-bordo);
+  border-radius: var(--raggio);
+  padding: 8px 10px;
+}
+
+.riga-scheda-esercizio__ordine {
+  color: var(--colore-testo-secondario);
+  font-size: 0.8rem;
+  width: 18px;
+}
+
+.riga-scheda-esercizio img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.riga-scheda-esercizio__nome {
+  flex: 1;
+  min-width: 0;
+}
+
+.riga-scheda-esercizio__azioni {
+  display: flex;
+  gap: 4px;
+}
+
+.riga-scheda-esercizio__azioni button {
+  background: transparent;
+  border: 1px solid var(--colore-bordo);
+  border-radius: 6px;
+  color: var(--colore-testo);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.riga-scheda-esercizio__azioni button:disabled {
+  opacity: 0.3;
 }
 
 .riga-esercizio__rimuovi {
