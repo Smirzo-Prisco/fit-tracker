@@ -6,6 +6,11 @@ const asyncHandler = require('../middleware/asyncHandler');
 const router = express.Router();
 router.use(requireAuth);
 
+// Deve restare in sync con frontend/src/lib/gruppiMuscolari.js e con la stessa
+// costante in routes/esercizi.js — usata qui solo per validare il filtro di
+// GET /andamento, non per scrivere dati.
+const GRUPPI_MUSCOLARI = ['Petto', 'Dorsali', 'Spalle', 'Bicipiti', 'Tricipiti', 'Gambe', 'Addominali'];
+
 // Punteggio di carico (Training Load Score) di una serie: ripetizioni × peso_kg × (RPE/10).
 // Richiede tutti e tre i valori — una serie senza RPE (es. dati storici pre-funzionalità)
 // non entra nel punteggio invece di essere trattata come 0, per non falsare l'andamento.
@@ -49,6 +54,10 @@ router.get(
   '/andamento',
   asyncHandler(async (req, res) => {
     const settimane = Math.min(Math.max(parseInt(req.query.settimane, 10) || 12, 1), 52);
+    const gruppoMuscolare = req.query.gruppo_muscolare || null;
+    if (gruppoMuscolare && !GRUPPI_MUSCOLARI.includes(gruppoMuscolare)) {
+      return res.status(400).json({ error: 'Gruppo muscolare non valido' });
+    }
     const [rows] = await pool.query(
       `SELECT
          DATE_SUB(a.data, INTERVAL WEEKDAY(a.data) DAY) AS settimana_inizio,
@@ -58,12 +67,14 @@ router.get(
        FROM serie s
        JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
        JOIN allenamenti a ON a.id = ae.allenamento_id
+       JOIN esercizi e ON e.id = ae.esercizio_id
        WHERE a.utente_id = ?
          AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
+         ${gruppoMuscolare ? 'AND e.gruppo_muscolare = ?' : ''}
        GROUP BY settimana_inizio
        ORDER BY settimana_inizio DESC
        LIMIT ?`,
-      [req.utenteId, settimane]
+      gruppoMuscolare ? [req.utenteId, gruppoMuscolare, settimane] : [req.utenteId, settimane]
     );
     res.json(
       rows
