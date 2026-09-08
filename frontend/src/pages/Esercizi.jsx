@@ -20,7 +20,6 @@ export default function Esercizi() {
   const [caricamentoImmagineModifica, setCaricamentoImmagineModifica] = useState(false);
   const [salvataggioModifica, setSalvataggioModifica] = useState(false);
   const [erroreModifica, setErroreModifica] = useState('');
-  const [progressione, setProgressione] = useState([]);
   const [progressioneCarico, setProgressioneCarico] = useState([]);
 
   const fileInputRef = useRef(null);
@@ -43,10 +42,6 @@ export default function Esercizi() {
     setModificaGruppo(selezionato.gruppo_muscolare || '');
     setErroreModifica('');
     api.get(`/esercizi/${selezionato.id}/progressione`).then((dati) => {
-      setProgressione(
-        dati.filter((d) => d.peso_kg != null).map((d) => ({ data: formattaData(d.data), peso: Number(d.peso_kg) }))
-      );
-
       // Punteggio di carico per sessione: somma di ripetizioni × kg × (RPE/10) di tutte
       // le serie di quella data (solo quelle con RPE registrato — dati storici pre-RPE
       // non contribuiscono, non vanno trattati come punteggio 0).
@@ -254,19 +249,6 @@ export default function Esercizi() {
           >
             {salvataggioModifica ? 'Salvataggio…' : 'Salva modifiche'}
           </button>
-
-          {progressione.length > 1 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={progressione}>
-                <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={36} />
-                <Tooltip />
-                <Line type="monotone" dataKey="peso" stroke="#1e6feb" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="testo-secondario">Servono almeno due sessioni con peso registrato per il grafico.</p>
-          )}
 
           <h3>Punteggio di carico per sessione</h3>
           {progressioneCarico.length > 1 ? (
