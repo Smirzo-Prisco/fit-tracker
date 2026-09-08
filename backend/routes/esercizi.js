@@ -9,6 +9,10 @@ const asyncHandler = require('../middleware/asyncHandler');
 const router = express.Router();
 router.use(requireAuth);
 
+// Deve restare in sync con frontend/src/lib/gruppiMuscolari.js — vedi lì il perché
+// di un set fisso invece di testo libero (reportistica per gruppo muscolare).
+const GRUPPI_MUSCOLARI = ['Petto', 'Dorsali', 'Spalle', 'Bicipiti', 'Tricipiti', 'Gambe', 'Addominali'];
+
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'esercizi');
 const ESTENSIONI_CONSENTITE = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
@@ -61,6 +65,9 @@ router.post(
     if (!nome || !nome.trim()) {
       return res.status(400).json({ error: 'Il nome è obbligatorio' });
     }
+    if (gruppo_muscolare && !GRUPPI_MUSCOLARI.includes(gruppo_muscolare)) {
+      return res.status(400).json({ error: 'Gruppo muscolare non valido' });
+    }
     try {
       const [result] = await pool.query(
         'INSERT INTO esercizi (nome, immagine_url, gruppo_muscolare) VALUES (?, ?, ?)',
@@ -80,6 +87,9 @@ router.put(
   '/:id',
   asyncHandler(async (req, res) => {
     const { nome, immagine_url, gruppo_muscolare } = req.body;
+    if (gruppo_muscolare && !GRUPPI_MUSCOLARI.includes(gruppo_muscolare)) {
+      return res.status(400).json({ error: 'Gruppo muscolare non valido' });
+    }
     try {
       await pool.query('UPDATE esercizi SET nome = ?, immagine_url = ?, gruppo_muscolare = ? WHERE id = ?', [
         nome.trim(),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
+import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
 
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
@@ -164,11 +165,14 @@ export default function Esercizi() {
               onChange={(e) => setNome(e.target.value)}
               required
             />
-            <input
-              placeholder="Muscoli allenati (es. Petto, Tricipiti)"
-              value={gruppoMuscolare}
-              onChange={(e) => setGruppoMuscolare(e.target.value)}
-            />
+            <select value={gruppoMuscolare} onChange={(e) => setGruppoMuscolare(e.target.value)}>
+              <option value="">Muscoli allenati…</option>
+              {GRUPPI_MUSCOLARI.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {errore && <p className="messaggio-errore">{errore}</p>}
@@ -232,11 +236,14 @@ export default function Esercizi() {
             </div>
             <div className="riga-esercizio__campi">
               <input value={modificaNome} onChange={(e) => setModificaNome(e.target.value)} required />
-              <input
-                placeholder="Muscoli allenati (es. Petto, Tricipiti)"
-                value={modificaGruppo}
-                onChange={(e) => setModificaGruppo(e.target.value)}
-              />
+              <select value={modificaGruppo} onChange={(e) => setModificaGruppo(e.target.value)}>
+                <option value="">Muscoli allenati…</option>
+                {GRUPPI_MUSCOLARI.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
