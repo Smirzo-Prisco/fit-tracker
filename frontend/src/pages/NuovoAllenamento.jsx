@@ -1,7 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
+
+// Punteggio di carico (Training Load Score): ripetizioni × kg × (RPE/10), sommato su ogni
+// serie che ha tutti e tre i valori — ricalcolato lato client per un riscontro immediato
+// mentre si compila, senza aspettare il giro di andata/ritorno col server.
+function punteggioTotale(esercizi) {
+  let totale = 0;
+  let almenoUna = false;
+  for (const e of esercizi) {
+    for (const s of e.serie) {
+      if (s.ripetizioni === '' || s.peso_kg === '' || s.rpe === '') continue;
+      almenoUna = true;
+      totale += Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+    }
+  }
+  return almenoUna ? Math.round(totale) : null;
+}
 
 export default function NuovoAllenamento() {
   const { id } = useParams();
@@ -42,7 +58,12 @@ export default function NuovoAllenamento() {
       setEsercizi(
         a.esercizi.map((e) => ({
           ...e,
-          serie: e.serie.map((s) => ({ id: s.id, ripetizioni: s.ripetizioni ?? '', peso_kg: s.peso_kg ?? '' })),
+          serie: e.serie.map((s) => ({
+            id: s.id,
+            ripetizioni: s.ripetizioni ?? '',
+            peso_kg: s.peso_kg ?? '',
+            rpe: s.rpe ?? '',
+          })),
         }))
       );
       setCaricamento(false);
@@ -104,7 +125,9 @@ export default function NuovoAllenamento() {
   function aggiungiSerie(indiceEsercizio) {
     setEsercizi((prev) =>
       prev.map((e, i) =>
-        i === indiceEsercizio ? { ...e, serie: [...e.serie, { id: null, ripetizioni: '', peso_kg: '' }] } : e
+        i === indiceEsercizio
+          ? { ...e, serie: [...e.serie, { id: null, ripetizioni: '', peso_kg: '', rpe: '' }] }
+          : e
       )
     );
   }
@@ -122,18 +145,20 @@ export default function NuovoAllenamento() {
   async function blurCampoSerie(indiceEsercizio, indiceSerie) {
     const esercizio = esercizi[indiceEsercizio];
     const riga = esercizio.serie[indiceSerie];
-    if (!riga.ripetizioni && !riga.peso_kg) return; // niente da salvare
+    if (!riga.ripetizioni && !riga.peso_kg && !riga.rpe) return; // niente da salvare
 
     try {
       if (riga.id) {
         await api.put(`/allenamenti/${id}/esercizi/${esercizio.id}/serie/${riga.id}`, {
           ripetizioni: riga.ripetizioni || null,
           peso_kg: riga.peso_kg || null,
+          rpe: riga.rpe || null,
         });
       } else {
         const risultato = await api.post(`/allenamenti/${id}/esercizi/${esercizio.id}/serie`, {
           ripetizioni: riga.ripetizioni || null,
           peso_kg: riga.peso_kg || null,
+          rpe: riga.rpe || null,
         });
         setEsercizi((prev) =>
           prev.map((e, i) =>
@@ -160,6 +185,8 @@ export default function NuovoAllenamento() {
     }
   }
 
+  const punteggio = useMemo(() => punteggioTotale(esercizi), [esercizi]);
+
   if (!id || caricamento || catalogo === null) {
     return <div className="loading-schermo">Caricamento…</div>;
   }
@@ -173,6 +200,11 @@ export default function NuovoAllenamento() {
         </button>
       </div>
       <p className="testo-secondario">Ogni dato si salva da solo appena esci dal campo.</p>
+      {punteggio != null && (
+        <p className="testo-secondario">
+          Punteggio di carico: <strong>{punteggio}</strong>
+        </p>
+      )}
 
       {erroreSalvataggio && <p className="messaggio-errore">{erroreSalvataggio}</p>}
 

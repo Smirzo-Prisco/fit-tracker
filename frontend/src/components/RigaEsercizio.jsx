@@ -40,6 +40,17 @@ export default function RigaEsercizio({ esercizio, onCambiaCampo, onBlurCampo, o
               onChange={(e) => onCambiaCampo(i, 'peso_kg', e.target.value)}
               onBlur={() => onBlurCampo(i)}
             />
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              max="10"
+              placeholder="RPE"
+              title="RPE — sforzo percepito, 1 (facilissimo) - 10 (cedimento)"
+              value={s.rpe}
+              onChange={(e) => onCambiaCampo(i, 'rpe', e.target.value)}
+              onBlur={() => onBlurCampo(i)}
+            />
             <button
               type="button"
               className="riga-serie__rimuovi"

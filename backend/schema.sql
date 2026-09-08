@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS serie (
   numero_serie INT NOT NULL,
   ripetizioni INT,
   peso_kg DECIMAL(6,2),
+  -- RPE (Rate of Perceived Exertion, 1-10, step 0.5): usato insieme a
+  -- ripetizioni/peso_kg per il punteggio di carico (Training Load Score),
+  -- vedi GET /allenamenti/andamento.
+  rpe DECIMAL(3,1),
   FOREIGN KEY (allenamento_esercizio_id) REFERENCES allenamento_esercizi(id) ON DELETE CASCADE,
   INDEX idx_serie_allenamento_esercizio (allenamento_esercizio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

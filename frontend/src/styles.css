@@ -216,6 +216,57 @@ a {
   gap: 10px;
 }
 
+.carico-classificazione {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.carico-classificazione__icona {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.carico-classificazione p {
+  margin: 2px 0;
+}
+
+.carico-legenda {
+  margin-top: 12px;
+}
+
+.carico-legenda summary {
+  cursor: pointer;
+  color: var(--colore-testo-secondario);
+  font-size: 0.85rem;
+}
+
+/* display:block + overflow-x:auto direttamente sulla tabella: su mobile è larga
+   (3 colonne di testo) e scrolla solo lei, mai l'intera pagina in orizzontale. */
+.tabella-legenda {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.tabella-legenda th,
+.tabella-legenda td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--colore-bordo);
+  vertical-align: top;
+  white-space: normal;
+}
+
+.tabella-legenda th {
+  color: var(--colore-testo-secondario);
+  font-weight: 600;
+}
+
 /* --- Form --- */
 
 .form {
@@ -434,9 +485,9 @@ textarea:focus {
 
 .riga-serie {
   display: grid;
-  grid-template-columns: 20px 1fr 1fr auto;
+  grid-template-columns: 18px 1fr 1fr 1fr auto;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .riga-serie__numero {
@@ -446,8 +497,9 @@ textarea:focus {
 }
 
 .riga-serie input {
-  padding: 8px;
+  padding: 8px 6px;
   font-size: 0.9rem;
+  min-width: 0;
 }
 
 .riga-serie__rimuovi {

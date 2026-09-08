@@ -6,6 +6,14 @@ const asyncHandler = require('../middleware/asyncHandler');
 const router = express.Router();
 router.use(requireAuth);
 
+// Punteggio di carico (Training Load Score) di una serie: ripetizioni × peso_kg × (RPE/10).
+// Richiede tutti e tre i valori — una serie senza RPE (es. dati storici pre-funzionalità)
+// non entra nel punteggio invece di essere trattata come 0, per non falsare l'andamento.
+function punteggioSerie(s) {
+  if (s.ripetizioni == null || s.peso_kg == null || s.rpe == null) return null;
+  return Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+}
+
 // Verifica che l'allenamento_esercizio indicato appartenga a un allenamento dell'utente,
 // e restituisce l'allenamento_id per comodità (evita un giro extra di query ai chiamanti).
 async function trovaAllenamentoEsercizio(utenteId, allenamentoId, aeId) {
@@ -34,6 +42,42 @@ router.get(
   })
 );
 
+// Andamento settimanale del punteggio di carico, per il pannello "Monitoraggio" in Dashboard.
+// Settimana lun-dom (WEEKDAY: 0=lun...6=dom), stessa convenzione di inizioSettimana() nel frontend.
+// Deve stare PRIMA di GET /:id, altrimenti Express interpreterebbe "andamento" come un :id.
+router.get(
+  '/andamento',
+  asyncHandler(async (req, res) => {
+    const settimane = Math.min(Math.max(parseInt(req.query.settimane, 10) || 12, 1), 52);
+    const [rows] = await pool.query(
+      `SELECT
+         DATE_SUB(a.data, INTERVAL WEEKDAY(a.data) DAY) AS settimana_inizio,
+         SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)) AS punteggio_totale,
+         AVG(s.rpe) AS rpe_medio,
+         COUNT(s.id) AS numero_set
+       FROM serie s
+       JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
+       JOIN allenamenti a ON a.id = ae.allenamento_id
+       WHERE a.utente_id = ?
+         AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
+       GROUP BY settimana_inizio
+       ORDER BY settimana_inizio DESC
+       LIMIT ?`,
+      [req.utenteId, settimane]
+    );
+    res.json(
+      rows
+        .reverse()
+        .map((r) => ({
+          settimana_inizio: r.settimana_inizio,
+          punteggio_totale: Math.round(Number(r.punteggio_totale)),
+          rpe_medio: Number(r.rpe_medio),
+          numero_set: r.numero_set,
+        }))
+    );
+  })
+);
+
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -55,19 +99,23 @@ router.get(
     );
 
     let serieMap = {};
+    let punteggioTotale = 0;
     if (esercizi.length > 0) {
       const [serieRows] = await pool.query(
         `SELECT * FROM serie WHERE allenamento_esercizio_id IN (?) ORDER BY numero_serie ASC`,
         [esercizi.map((e) => e.id)]
       );
       serieMap = serieRows.reduce((acc, s) => {
-        (acc[s.allenamento_esercizio_id] ||= []).push(s);
+        const punteggio = punteggioSerie(s);
+        if (punteggio != null) punteggioTotale += punteggio;
+        (acc[s.allenamento_esercizio_id] ||= []).push({ ...s, punteggio });
         return acc;
       }, {});
     }
 
     res.json({
       ...allenamento,
+      punteggio_totale: punteggioTotale || null,
       esercizi: esercizi.map((e) => ({ ...e, serie: serieMap[e.id] || [] })),
     });
   })
@@ -161,16 +209,20 @@ router.post(
     const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
     if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
 
-    const { ripetizioni, peso_kg } = req.body;
+    const { ripetizioni, peso_kg, rpe } = req.body;
     const [[{ conteggio }]] = await pool.query(
       'SELECT COUNT(*) AS conteggio FROM serie WHERE allenamento_esercizio_id = ?',
       [req.params.aeId]
     );
     const [result] = await pool.query(
-      'INSERT INTO serie (allenamento_esercizio_id, numero_serie, ripetizioni, peso_kg) VALUES (?, ?, ?, ?)',
-      [req.params.aeId, conteggio + 1, ripetizioni || null, peso_kg || null]
+      'INSERT INTO serie (allenamento_esercizio_id, numero_serie, ripetizioni, peso_kg, rpe) VALUES (?, ?, ?, ?, ?)',
+      [req.params.aeId, conteggio + 1, ripetizioni || null, peso_kg || null, rpe || null]
     );
-    res.status(201).json({ id: result.insertId, numero_serie: conteggio + 1 });
+    res.status(201).json({
+      id: result.insertId,
+      numero_serie: conteggio + 1,
+      punteggio: punteggioSerie({ ripetizioni, peso_kg, rpe }),
+    });
   })
 );
 
@@ -180,14 +232,12 @@ router.put(
     const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
     if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
 
-    const { ripetizioni, peso_kg } = req.body;
-    await pool.query('UPDATE serie SET ripetizioni = ?, peso_kg = ? WHERE id = ? AND allenamento_esercizio_id = ?', [
-      ripetizioni || null,
-      peso_kg || null,
-      req.params.serieId,
-      req.params.aeId,
-    ]);
-    res.json({ ok: true });
+    const { ripetizioni, peso_kg, rpe } = req.body;
+    await pool.query(
+      'UPDATE serie SET ripetizioni = ?, peso_kg = ?, rpe = ? WHERE id = ? AND allenamento_esercizio_id = ?',
+      [ripetizioni || null, peso_kg || null, rpe || null, req.params.serieId, req.params.aeId]
+    );
+    res.json({ ok: true, punteggio: punteggioSerie({ ripetizioni, peso_kg, rpe }) });
   })
 );
 
