@@ -21,6 +21,7 @@ export default function Esercizi() {
   const [salvataggioModifica, setSalvataggioModifica] = useState(false);
   const [erroreModifica, setErroreModifica] = useState('');
   const [progressione, setProgressione] = useState([]);
+  const [progressioneCarico, setProgressioneCarico] = useState([]);
 
   const fileInputRef = useRef(null);
   const fileInputModificaRef = useRef(null);
@@ -44,6 +45,21 @@ export default function Esercizi() {
     api.get(`/esercizi/${selezionato.id}/progressione`).then((dati) => {
       setProgressione(
         dati.filter((d) => d.peso_kg != null).map((d) => ({ data: formattaData(d.data), peso: Number(d.peso_kg) }))
+      );
+
+      // Punteggio di carico per sessione: somma di ripetizioni × kg × (RPE/10) di tutte
+      // le serie di quella data (solo quelle con RPE registrato — dati storici pre-RPE
+      // non contribuiscono, non vanno trattati come punteggio 0).
+      const perData = new Map();
+      for (const d of dati) {
+        if (d.ripetizioni == null || d.peso_kg == null || d.rpe == null) continue;
+        const punteggio = Number(d.ripetizioni) * Number(d.peso_kg) * (Number(d.rpe) / 10);
+        perData.set(d.data, (perData.get(d.data) || 0) + punteggio);
+      }
+      setProgressioneCarico(
+        [...perData.entries()]
+          .sort(([a], [b]) => (a < b ? -1 : 1))
+          .map(([data, punteggio]) => ({ data: formattaData(data), punteggio: Math.round(punteggio) }))
       );
     });
   }, [selezionato]);
@@ -250,6 +266,22 @@ export default function Esercizi() {
             </ResponsiveContainer>
           ) : (
             <p className="testo-secondario">Servono almeno due sessioni con peso registrato per il grafico.</p>
+          )}
+
+          <h3>Punteggio di carico per sessione</h3>
+          {progressioneCarico.length > 1 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={progressioneCarico}>
+                <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
+                <Tooltip />
+                <Line type="monotone" dataKey="punteggio" stroke="#e5484d" strokeWidth={2} dot />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="testo-secondario">
+              Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × kg × RPE/10).
+            </p>
           )}
         </div>
       )}

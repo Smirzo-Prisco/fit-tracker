@@ -117,7 +117,7 @@ router.get(
   '/:id/progressione',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.query(
-      `SELECT a.data, s.numero_serie, s.ripetizioni, s.peso_kg
+      `SELECT a.data, s.numero_serie, s.ripetizioni, s.peso_kg, s.rpe
        FROM serie s
        JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
        JOIN allenamenti a ON a.id = ae.allenamento_id
