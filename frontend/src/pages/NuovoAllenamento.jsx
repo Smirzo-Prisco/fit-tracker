@@ -43,17 +43,22 @@ async function caricaStorico(esercizioId, allenamentoIdCorrente) {
 
 // Crea automaticamente tante serie vuote quante l'ultima volta, con quei valori SOLO
 // come placeholder (mai come value): restano un riferimento da superare, non vengono
-// salvati finché non li digiti tu stesso. Usata solo quando l'esercizio viene aggiunto
-// ex novo — non alla riapertura di un allenamento già iniziato (vedi conRiferimenti).
+// salvati finché non li digiti tu stesso. Usata quando l'esercizio viene aggiunto ex
+// novo, ma anche riaprendo un allenamento già iniziato (vedi conRiferimenti) — una riga
+// placeholder mai compilata non è mai stata salvata, quindi va ricreata ad ogni apertura.
 function serieDaStorico(serieStorico) {
   return serieStorico.map((rif) => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: rif }));
 }
 
-// Aggancia i valori di riferimento alle serie già esistenti (posizione per posizione),
-// senza aggiungerne di nuove — per non far ricomparire righe extra ogni volta che si
-// riapre un allenamento già in corso.
+// Aggancia i valori di riferimento alle serie già salvate (posizione per posizione) e,
+// se lo storico ne ha di più, aggiunge le righe placeholder mancanti — quelle non
+// compilate l'ultima apertura non erano mai state salvate, quindi vanno riproposte.
 function conRiferimenti(serieEsistenti, serieStorico) {
-  return serieEsistenti.map((s, i) => ({ ...s, riferimento: serieStorico[i] || null }));
+  const risultato = serieEsistenti.map((s, i) => ({ ...s, riferimento: serieStorico[i] || null }));
+  for (let i = serieEsistenti.length; i < serieStorico.length; i += 1) {
+    risultato.push({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: serieStorico[i] });
+  }
+  return risultato;
 }
 
 export default function NuovoAllenamento() {
