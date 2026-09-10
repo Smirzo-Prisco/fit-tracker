@@ -4,9 +4,11 @@ import { api } from '../lib/api';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
 // Punteggio di carico (Training Load Score): ripetizioni × kg × (RPE/10), sommato su ogni
-// serie che ha tutti e tre i valori — ricalcolato lato client per un riscontro immediato
-// mentre si compila, senza aspettare il giro di andata/ritorno col server.
-function punteggioTotale(esercizi) {
+// serie che ha tutti e tre i valori REALMENTE digitati — ricalcolato lato client per un
+// riscontro immediato mentre si compila. Conta solo ciò che hai già scritto: su un
+// allenamento pianificato e non ancora svolto resta null (vedi punteggioProiettato sotto
+// per un totale sempre visibile, basato anche sui placeholder non ancora superati).
+function punteggioReale(esercizi) {
   let totale = 0;
   let almenoUna = false;
   for (const e of esercizi) {
@@ -14,6 +16,27 @@ function punteggioTotale(esercizi) {
       if (s.ripetizioni === '' || s.peso_kg === '' || s.rpe === '') continue;
       almenoUna = true;
       totale += Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+    }
+  }
+  return almenoUna ? Math.round(totale) : null;
+}
+
+// Come sopra, ma per ogni campo lasciato vuoto usa il valore di riferimento (l'ultima
+// volta) invece di escludere la serie: così il totale resta sempre "realistico" — pieno
+// fin da quando apri un allenamento pianificato, e cala solo sui campi in cui stai
+// effettivamente scrivendo un numero più basso del riferimento, non su quelli che
+// semplicemente non hai ancora toccato.
+function punteggioProiettato(esercizi) {
+  let totale = 0;
+  let almenoUna = false;
+  for (const e of esercizi) {
+    for (const s of e.serie) {
+      const rip = s.ripetizioni !== '' ? s.ripetizioni : s.riferimento?.ripetizioni;
+      const kg = s.peso_kg !== '' ? s.peso_kg : s.riferimento?.peso_kg;
+      const rpe = s.rpe !== '' ? s.rpe : s.riferimento?.rpe;
+      if (rip == null || kg == null || rpe == null) continue;
+      almenoUna = true;
+      totale += Number(rip) * Number(kg) * (Number(rpe) / 10);
     }
   }
   return almenoUna ? Math.round(totale) : null;
@@ -292,7 +315,8 @@ export default function NuovoAllenamento() {
     }
   }
 
-  const punteggio = useMemo(() => punteggioTotale(esercizi), [esercizi]);
+  const reale = useMemo(() => punteggioReale(esercizi), [esercizi]);
+  const proiettato = useMemo(() => punteggioProiettato(esercizi), [esercizi]);
 
   // Somma dei punteggi dell'ultima volta, solo per gli esercizi attualmente presenti
   // in questo allenamento — il riferimento da superare cambia con quello che stai
@@ -332,20 +356,23 @@ export default function NuovoAllenamento() {
         </button>
       </div>
       <p className="testo-secondario">Ogni dato si salva da solo appena esci dal campo.</p>
-      {punteggio != null && (
+      {proiettato != null && (
         <p className="testo-secondario">
-          Punteggio di carico: <strong>{punteggio}</strong>
+          Punteggio di carico previsto: <strong>{proiettato}</strong>
           {punteggioBaseline != null && (
             <>
               {' '}
               (ultima volta per questi esercizi: {punteggioBaseline},{' '}
               <strong>
-                {punteggio - punteggioBaseline >= 0 ? '+' : ''}
-                {punteggio - punteggioBaseline}
+                {proiettato - punteggioBaseline >= 0 ? '+' : ''}
+                {proiettato - punteggioBaseline}
               </strong>
               )
             </>
           )}
+          {/* Finché non è tutto compilato, "previsto" include ancora dei placeholder:
+              questo mostra quanto di quel totale è già davvero registrato. */}
+          {reale != null && reale !== proiettato && <> — già registrato: {reale}</>}
         </p>
       )}
       {eserciziSenzaStorico.length > 0 && (
