@@ -468,6 +468,15 @@ textarea:focus {
   font-weight: 600;
 }
 
+.badge-nuovo {
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--colore-primario) 18%, transparent);
+  color: var(--colore-primario);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+}
+
 /* --- Blocco esercizio + serie multiple (form allenamento) --- */
 
 .blocco-esercizio {

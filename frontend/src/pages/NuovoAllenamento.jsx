@@ -19,6 +19,43 @@ function punteggioTotale(esercizi) {
   return almenoUna ? Math.round(totale) : null;
 }
 
+// Stessa formula, ma su un elenco grezzo di serie {ripetizioni, peso_kg, rpe} come
+// arrivano da GET /esercizi/:id/ultima-sessione (usato per il punteggio di riferimento).
+function punteggioSerieList(serieList) {
+  let totale = 0;
+  for (const s of serieList) {
+    if (s.ripetizioni == null || s.peso_kg == null || s.rpe == null) continue;
+    totale += Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+  }
+  return totale;
+}
+
+// Recupera le serie dell'ultima volta che l'esercizio è stato svolto (in un allenamento
+// diverso da quello corrente). In caso di errore di rete non blocca l'aggiunta
+// dell'esercizio, semplicemente non ci sarà storico da mostrare.
+async function caricaStorico(esercizioId, allenamentoIdCorrente) {
+  try {
+    return await api.get(`/esercizi/${esercizioId}/ultima-sessione?escludi=${allenamentoIdCorrente}`);
+  } catch {
+    return { data: null, serie: [] };
+  }
+}
+
+// Crea automaticamente tante serie vuote quante l'ultima volta, con quei valori SOLO
+// come placeholder (mai come value): restano un riferimento da superare, non vengono
+// salvati finché non li digiti tu stesso. Usata solo quando l'esercizio viene aggiunto
+// ex novo — non alla riapertura di un allenamento già iniziato (vedi conRiferimenti).
+function serieDaStorico(serieStorico) {
+  return serieStorico.map((rif) => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: rif }));
+}
+
+// Aggancia i valori di riferimento alle serie già esistenti (posizione per posizione),
+// senza aggiungerne di nuove — per non far ricomparire righe extra ogni volta che si
+// riapre un allenamento già in corso.
+function conRiferimenti(serieEsistenti, serieStorico) {
+  return serieEsistenti.map((s, i) => ({ ...s, riferimento: serieStorico[i] || null }));
+}
+
 export default function NuovoAllenamento() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -26,6 +63,7 @@ export default function NuovoAllenamento() {
   const [catalogo, setCatalogo] = useState(null);
   const [schede, setSchede] = useState([]);
   const [schedaId, setSchedaId] = useState('');
+  const [schedaEsercizi, setSchedaEsercizi] = useState([]);
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [durataMin, setDurataMin] = useState('');
   const [note, setNote] = useState('');
@@ -58,6 +96,9 @@ export default function NuovoAllenamento() {
       setEsercizi(
         a.esercizi.map((e) => ({
           ...e,
+          storicoCaricato: false,
+          haStorico: false,
+          storicoPunteggio: 0,
           serie: e.serie.map((s) => ({
             id: s.id,
             ripetizioni: s.ripetizioni ?? '',
@@ -66,7 +107,30 @@ export default function NuovoAllenamento() {
           })),
         }))
       );
+      if (a.scheda_id) {
+        const scheda = await api.get(`/schede/${a.scheda_id}`);
+        setSchedaEsercizi(scheda.esercizi);
+      }
       setCaricamento(false);
+
+      // Storico per ogni esercizio già presente (badge "nuovo"/punteggio di riferimento),
+      // anche riaprendo un allenamento già iniziato — senza aggiungere nuove serie.
+      for (const e of a.esercizi) {
+        const storico = await caricaStorico(e.esercizio_id, id);
+        setEsercizi((prev) =>
+          prev.map((riga) =>
+            riga.id === e.id
+              ? {
+                  ...riga,
+                  serie: conRiferimenti(riga.serie, storico.serie),
+                  haStorico: storico.serie.length > 0,
+                  storicoCaricato: true,
+                  storicoPunteggio: punteggioSerieList(storico.serie),
+                }
+              : riga
+          )
+        );
+      }
     })();
   }, [id]);
 
@@ -94,8 +158,12 @@ export default function NuovoAllenamento() {
   async function caricaDaScheda(nuovoSchedaId) {
     setSchedaId(nuovoSchedaId);
     salvaCampiTop({ scheda_id: nuovoSchedaId || null });
-    if (!nuovoSchedaId) return;
+    if (!nuovoSchedaId) {
+      setSchedaEsercizi([]);
+      return;
+    }
     const scheda = await api.get(`/schede/${nuovoSchedaId}`);
+    setSchedaEsercizi(scheda.esercizi);
     const idGiaPresenti = new Set(esercizi.map((e) => String(e.esercizio_id)));
     for (const es of scheda.esercizi) {
       if (idGiaPresenti.has(String(es.esercizio_id))) continue;
@@ -107,10 +175,28 @@ export default function NuovoAllenamento() {
     if (!esercizioId) return;
     try {
       const riga = await api.post(`/allenamenti/${id}/esercizi`, { esercizio_id: esercizioId });
-      setEsercizi((prev) => [...prev, riga]);
+      setEsercizi((prev) => [...prev, { ...riga, storicoCaricato: false, haStorico: false, storicoPunteggio: 0 }]);
       setErroreSalvataggio('');
+
+      // Precompila automaticamente le stesse serie dell'ultima volta (come placeholder)
+      // e calcola il punteggio di riferimento da battere — arriva un attimo dopo,
+      // la riga dell'esercizio intanto è già visibile e utilizzabile.
+      const storico = await caricaStorico(esercizioId, id);
+      setEsercizi((prev) =>
+        prev.map((e) =>
+          e.id === riga.id
+            ? {
+                ...e,
+                serie: serieDaStorico(storico.serie),
+                haStorico: storico.serie.length > 0,
+                storicoCaricato: true,
+                storicoPunteggio: punteggioSerieList(storico.serie),
+              }
+            : e
+        )
+      );
     } catch (err) {
-      setErroreSalvataggio('Impossibile aggiungere l\'esercizio: ' + err.message);
+      setErroreSalvataggio("Impossibile aggiungere l'esercizio: " + err.message);
     }
   }
 
@@ -187,6 +273,31 @@ export default function NuovoAllenamento() {
 
   const punteggio = useMemo(() => punteggioTotale(esercizi), [esercizi]);
 
+  // Somma dei punteggi dell'ultima volta, solo per gli esercizi attualmente presenti
+  // in questo allenamento — il riferimento da superare cambia con quello che stai
+  // effettivamente facendo oggi (aggiungere/togliere un esercizio lo ricalcola).
+  const punteggioBaseline = useMemo(() => {
+    let totale = 0;
+    let almenoUno = false;
+    for (const e of esercizi) {
+      if (e.haStorico) {
+        totale += e.storicoPunteggio;
+        almenoUno = true;
+      }
+    }
+    return almenoUno ? Math.round(totale) : null;
+  }, [esercizi]);
+
+  const eserciziSenzaStorico = useMemo(
+    () => esercizi.filter((e) => e.storicoCaricato && !e.haStorico).map((e) => e.nome),
+    [esercizi]
+  );
+
+  const eserciziMancantiDaScheda = useMemo(() => {
+    const presentiIds = new Set(esercizi.map((e) => String(e.esercizio_id)));
+    return schedaEsercizi.filter((se) => !presentiIds.has(String(se.esercizio_id))).map((se) => se.nome);
+  }, [esercizi, schedaEsercizi]);
+
   if (!id || caricamento || catalogo === null) {
     return <div className="loading-schermo">Caricamento…</div>;
   }
@@ -203,7 +314,24 @@ export default function NuovoAllenamento() {
       {punteggio != null && (
         <p className="testo-secondario">
           Punteggio di carico: <strong>{punteggio}</strong>
+          {punteggioBaseline != null && (
+            <>
+              {' '}
+              (ultima volta per questi esercizi: {punteggioBaseline},{' '}
+              <strong>
+                {punteggio - punteggioBaseline >= 0 ? '+' : ''}
+                {punteggio - punteggioBaseline}
+              </strong>
+              )
+            </>
+          )}
         </p>
+      )}
+      {eserciziSenzaStorico.length > 0 && (
+        <p className="testo-secondario">🆕 Senza dati precedenti: {eserciziSenzaStorico.join(', ')}</p>
+      )}
+      {eserciziMancantiDaScheda.length > 0 && (
+        <p className="testo-secondario">⚠️ Mancano dalla scheda: {eserciziMancantiDaScheda.join(', ')}</p>
       )}
 
       {erroreSalvataggio && <p className="messaggio-errore">{erroreSalvataggio}</p>}

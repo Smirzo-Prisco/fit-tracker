@@ -139,4 +139,30 @@ router.get(
   })
 );
 
+// Serie dell'ultima volta che l'esercizio è stato svolto (in un allenamento diverso da
+// quello indicato in ?escludi) — usata da NuovoAllenamento per precompilare le serie
+// come placeholder e calcolare il punteggio di riferimento da battere.
+router.get(
+  '/:id/ultima-sessione',
+  asyncHandler(async (req, res) => {
+    const escludiAllenamento = parseInt(req.query.escludi, 10) || 0;
+    const [riferimento] = await pool.query(
+      `SELECT ae.id, a.data
+       FROM allenamento_esercizi ae
+       JOIN allenamenti a ON a.id = ae.allenamento_id
+       WHERE ae.esercizio_id = ? AND a.utente_id = ? AND a.id != ?
+       ORDER BY a.data DESC, a.id DESC
+       LIMIT 1`,
+      [req.params.id, req.utenteId, escludiAllenamento]
+    );
+    if (!riferimento[0]) return res.json({ data: null, serie: [] });
+
+    const [serie] = await pool.query(
+      'SELECT ripetizioni, peso_kg, rpe FROM serie WHERE allenamento_esercizio_id = ? ORDER BY numero_serie ASC',
+      [riferimento[0].id]
+    );
+    res.json({ data: riferimento[0].data, serie });
+  })
+);
+
 module.exports = router;
