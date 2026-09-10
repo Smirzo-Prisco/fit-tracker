@@ -236,7 +236,23 @@ export default function NuovoAllenamento() {
   async function blurCampoSerie(indiceEsercizio, indiceSerie) {
     const esercizio = esercizi[indiceEsercizio];
     const riga = esercizio.serie[indiceSerie];
-    if (!riga.ripetizioni && !riga.peso_kg && !riga.rpe) return; // niente da salvare
+    const vuota = !riga.ripetizioni && !riga.peso_kg && !riga.rpe;
+
+    if (vuota) {
+      if (!riga.id) return; // placeholder mai salvata: niente da fare
+      // Aveva almeno un valore salvato ed è stata svuotata del tutto: va cancellata
+      // dal server, altrimenti il vecchio valore resterebbe come dato "fantasma" che
+      // ricompare al prossimo caricamento nonostante l'avessi cancellato dal campo.
+      await segnalaErrore(api.del(`/allenamenti/${id}/esercizi/${esercizio.id}/serie/${riga.id}`));
+      setEsercizi((prev) =>
+        prev.map((e, i) =>
+          i === indiceEsercizio
+            ? { ...e, serie: e.serie.map((s, j) => (j === indiceSerie ? { ...s, id: null } : s)) }
+            : e
+        )
+      );
+      return;
+    }
 
     try {
       if (riga.id) {
