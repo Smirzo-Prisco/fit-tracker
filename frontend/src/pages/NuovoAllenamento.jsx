@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formattaData } from '../lib/date';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
 // Punteggio di carico (Training Load Score): ripetizioni × kg × (RPE/10), sommato su ogni
@@ -73,6 +74,11 @@ function serieDaStorico(serieStorico) {
   return serieStorico.map((rif) => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: rif }));
 }
 
+// "+58" / "-12" / "+0" — usato per i tre confronti mostrati sotto il punteggio previsto.
+function formattaDelta(diff) {
+  return `${diff >= 0 ? '+' : ''}${diff}`;
+}
+
 // Aggancia i valori di riferimento alle serie già salvate (posizione per posizione) e,
 // se lo storico ne ha di più, aggiunge le righe placeholder mancanti — quelle non
 // compilate l'ultima apertura non erano mai state salvate, quindi vanno riproposte.
@@ -92,6 +98,7 @@ export default function NuovoAllenamento() {
   const [schede, setSchede] = useState([]);
   const [schedaId, setSchedaId] = useState('');
   const [schedaEsercizi, setSchedaEsercizi] = useState([]);
+  const [allenamentoPrecedente, setAllenamentoPrecedente] = useState(null);
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [durataMin, setDurataMin] = useState('');
   const [note, setNote] = useState('');
@@ -121,6 +128,7 @@ export default function NuovoAllenamento() {
       setDurataMin(a.durata_min || '');
       setNote(a.note || '');
       setSchedaId(a.scheda_id || '');
+      setAllenamentoPrecedente(a.allenamento_precedente || null);
       setEsercizi(
         a.esercizi.map((e) => ({
           ...e,
@@ -357,23 +365,27 @@ export default function NuovoAllenamento() {
       </div>
       <p className="testo-secondario">Ogni dato si salva da solo appena esci dal campo.</p>
       {proiettato != null && (
-        <p className="testo-secondario">
-          Punteggio di carico previsto: <strong>{proiettato}</strong>
+        <>
+          <p className="testo-secondario">
+            Punteggio di carico previsto: <strong>{proiettato}</strong>
+            {/* Finché non è tutto compilato, "previsto" include ancora dei placeholder:
+                questo mostra quanto di quel totale è già davvero registrato. */}
+            {reale != null && reale !== proiettato && <> — già registrato: {reale}</>}
+          </p>
           {punteggioBaseline != null && (
-            <>
-              {' '}
-              (ultima volta per questi esercizi: {punteggioBaseline},{' '}
-              <strong>
-                {proiettato - punteggioBaseline >= 0 ? '+' : ''}
-                {proiettato - punteggioBaseline}
-              </strong>
-              )
-            </>
+            <p className="testo-secondario">
+              Ultima volta per questi stessi esercizi: {punteggioBaseline} (
+              <strong>{formattaDelta(proiettato - punteggioBaseline)}</strong>)
+            </p>
           )}
-          {/* Finché non è tutto compilato, "previsto" include ancora dei placeholder:
-              questo mostra quanto di quel totale è già davvero registrato. */}
-          {reale != null && reale !== proiettato && <> — già registrato: {reale}</>}
-        </p>
+          {allenamentoPrecedente && (
+            <p className="testo-secondario">
+              Allenamento precedente ({formattaData(allenamentoPrecedente.data)}, esercizi anche diversi da oggi):{' '}
+              {allenamentoPrecedente.punteggio_totale} (
+              <strong>{formattaDelta(proiettato - allenamentoPrecedente.punteggio_totale)}</strong>)
+            </p>
+          )}
+        </>
       )}
       {eserciziSenzaStorico.length > 0 && (
         <p className="testo-secondario">🆕 Senza dati precedenti: {eserciziSenzaStorico.join(', ')}</p>

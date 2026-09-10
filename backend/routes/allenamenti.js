@@ -124,9 +124,30 @@ router.get(
       }, {});
     }
 
+    // Allenamento precedente (l'intero, non solo gli esercizi in comune): stesso
+    // principio dell'EXISTS in /esercizi/:id/ultima-sessione — un allenamento
+    // pianificato ma ancora vuoto non deve mai contare come "precedente" solo
+    // perché ha una data più vicina a oggi.
+    const [precedenteRows] = await pool.query(
+      `SELECT a2.id, a2.data, SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)) AS punteggio_totale
+       FROM allenamenti a2
+       JOIN allenamento_esercizi ae2 ON ae2.allenamento_id = a2.id
+       JOIN serie s ON s.allenamento_esercizio_id = ae2.id
+       WHERE a2.utente_id = ? AND a2.id != ?
+         AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
+       GROUP BY a2.id
+       ORDER BY a2.data DESC, a2.id DESC
+       LIMIT 1`,
+      [req.utenteId, allenamento.id]
+    );
+    const precedente = precedenteRows[0]
+      ? { data: precedenteRows[0].data, punteggio_totale: Math.round(Number(precedenteRows[0].punteggio_totale)) }
+      : null;
+
     res.json({
       ...allenamento,
       punteggio_totale: punteggioTotale || null,
+      allenamento_precedente: precedente,
       esercizi: esercizi.map((e) => ({ ...e, serie: serieMap[e.id] || [] })),
     });
   })
