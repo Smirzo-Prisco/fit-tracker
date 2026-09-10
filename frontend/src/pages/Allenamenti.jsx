@@ -43,6 +43,10 @@ export default function Allenamenti() {
               <strong>{formattaData(a.data)}</strong>
               <span className="testo-secondario">
                 {a.numero_esercizi} esercizi{a.durata_min ? ` · ${a.durata_min} min` : ''}
+                {a.punteggio_reale != null && ` · 🏋️ ${a.punteggio_reale}`}
+                {a.punteggio_reale == null &&
+                  a.punteggio_previsto != null &&
+                  ` · 🏋️ ${a.punteggio_previsto} (previsto)`}
               </span>
               {a.note && <p className="testo-secondario">{a.note}</p>}
             </Link>

@@ -43,7 +43,57 @@ router.get(
        ORDER BY a.data DESC, a.id DESC`,
       [req.utenteId]
     );
-    res.json(rows);
+
+    // Punteggio per card: reale (solo dati davvero registrati) e previsto (come nel
+    // dettaglio allenamento, ma a livello di esercizio invece che di singola serie —
+    // per ogni esercizio usa il suo punteggio reale in QUESTO allenamento se presente,
+    // altrimenti l'ultimo reale noto da un allenamento precedente per lo stesso
+    // esercizio). Un solo giro in ordine cronologico: "ultimo noto" si aggiorna man
+    // mano, così ogni allenamento vede solo ciò che è realmente accaduto prima di lui.
+    const [aeRows] = await pool.query(
+      `SELECT ae.allenamento_id, ae.esercizio_id, a.data,
+              SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)) AS reale_esercizio
+       FROM allenamento_esercizi ae
+       JOIN allenamenti a ON a.id = ae.allenamento_id
+       LEFT JOIN serie s ON s.allenamento_esercizio_id = ae.id
+       WHERE a.utente_id = ?
+       GROUP BY ae.id, ae.allenamento_id, ae.esercizio_id, a.data
+       ORDER BY a.data ASC, a.id ASC`,
+      [req.utenteId]
+    );
+
+    const ultimoRealeNoto = {}; // esercizio_id -> ultimo punteggio reale noto
+    const perAllenamento = {}; // allenamento_id -> { realeSum, realeCount, proiettatoSum, proiettatoCount }
+    for (const row of aeRows) {
+      const agg = (perAllenamento[row.allenamento_id] ||= {
+        realeSum: 0,
+        realeCount: 0,
+        proiettatoSum: 0,
+        proiettatoCount: 0,
+      });
+      const realeEs = row.reale_esercizio != null ? Number(row.reale_esercizio) : null;
+      if (realeEs != null) {
+        agg.realeSum += realeEs;
+        agg.realeCount += 1;
+      }
+      const baseline = realeEs != null ? realeEs : ultimoRealeNoto[row.esercizio_id];
+      if (baseline != null) {
+        agg.proiettatoSum += baseline;
+        agg.proiettatoCount += 1;
+      }
+      if (realeEs != null) ultimoRealeNoto[row.esercizio_id] = realeEs;
+    }
+
+    res.json(
+      rows.map((a) => {
+        const agg = perAllenamento[a.id];
+        return {
+          ...a,
+          punteggio_reale: agg && agg.realeCount > 0 ? Math.round(agg.realeSum) : null,
+          punteggio_previsto: agg && agg.proiettatoCount > 0 ? Math.round(agg.proiettatoSum) : null,
+        };
+      })
+    );
   })
 );
 
