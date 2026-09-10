@@ -147,10 +147,15 @@ router.get(
   asyncHandler(async (req, res) => {
     const escludiAllenamento = parseInt(req.query.escludi, 10) || 0;
     const [riferimento] = await pool.query(
+      // EXISTS: un allenamento preparato in anticipo ma non ancora svolto (nessuna
+      // serie salvata) non deve mai passare per "ultima sessione" solo perché ha una
+      // data più recente di quella vera — altrimenti i placeholder di un allenamento
+      // vecchio ma già completato spariscono a favore di uno futuro ancora vuoto.
       `SELECT ae.id, a.data
        FROM allenamento_esercizi ae
        JOIN allenamenti a ON a.id = ae.allenamento_id
        WHERE ae.esercizio_id = ? AND a.utente_id = ? AND a.id != ?
+         AND EXISTS (SELECT 1 FROM serie s WHERE s.allenamento_esercizio_id = ae.id)
        ORDER BY a.data DESC, a.id DESC
        LIMIT 1`,
       [req.params.id, req.utenteId, escludiAllenamento]
