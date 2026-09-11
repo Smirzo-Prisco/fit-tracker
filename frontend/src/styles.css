@@ -178,6 +178,11 @@ a {
   margin-bottom: 8px;
 }
 
+.saluto-profilo {
+  display: inline-block;
+  text-decoration: none;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

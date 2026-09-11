@@ -5,7 +5,7 @@ const VOCI_NAV = [
   { to: '/misurazioni', label: 'Misure', icona: '📏' },
   { to: '/allenamenti', label: 'Workout', icona: '🏋️' },
   { to: '/esercizi', label: 'Esercizi', icona: '📈' },
-  { to: '/profilo', label: 'Profilo', icona: '👤' },
+  { to: '/schede', label: 'Schede', icona: '📋' },
 ];
 
 export default function Layout() {
