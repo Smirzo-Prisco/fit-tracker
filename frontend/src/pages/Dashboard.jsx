@@ -125,9 +125,12 @@ export default function Dashboard() {
 
   return (
     <div className="pagina">
-      <Link to="/profilo" className="saluto-profilo">
+      <div className="pagina__header">
         <h1>Ciao 👋</h1>
-      </Link>
+        <Link to="/profilo" className="pulsante-profilo" aria-label="Profilo">
+          👤
+        </Link>
+      </div>
 
       <div className="card-grid">
         <div className="card">
