@@ -557,12 +557,6 @@ textarea:focus {
 
 /* --- Schede --- */
 
-.link-schede {
-  display: inline-block;
-  text-decoration: none;
-  margin-bottom: var(--spaziatura);
-}
-
 .lista-scheda-esercizi {
   display: flex;
   flex-direction: column;

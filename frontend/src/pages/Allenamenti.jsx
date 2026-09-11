@@ -33,9 +33,6 @@ export default function Allenamenti() {
           + Nuovo
         </Link>
       </div>
-      <Link to="/schede" className="testo-secondario link-schede">
-        📋 Le mie schede
-      </Link>
 
       <ul className="lista-allenamenti">
         {lista.map((a) => (
