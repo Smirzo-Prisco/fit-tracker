@@ -18,6 +18,7 @@ export default function Allenamenti() {
   }, []);
 
   async function elimina(id) {
+    if (!window.confirm('Eliminare questo allenamento? Non è reversibile.')) return;
     await api.del(`/allenamenti/${id}`);
     await ricarica();
   }
