@@ -125,6 +125,7 @@ export default function Esercizi() {
   }
 
   async function elimina(id) {
+    if (!window.confirm('Eliminare questo esercizio? Non è reversibile.')) return;
     setErrore('');
     try {
       await api.del(`/esercizi/${id}`);
