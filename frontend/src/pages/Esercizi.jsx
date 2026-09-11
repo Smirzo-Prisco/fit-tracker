@@ -2,29 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
-import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
+import { GRUPPI_MUSCOLARI, COLORE_GRUPPO } from '../lib/gruppiMuscolari';
 
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
   const [caricamento, setCaricamento] = useState(true);
+  const [ricerca, setRicerca] = useState('');
+  const [filtroGruppo, setFiltroGruppo] = useState('');
+
+  // Foglio (bottom sheet): null = chiuso, 'crea' = nuovo esercizio,
+  // altrimenti l'oggetto esercizio in corso di modifica.
+  const [foglio, setFoglio] = useState(null);
+
+  // Campi condivisi tra creazione e modifica: il foglio mostra sempre solo
+  // uno dei due form, mai entrambi, quindi possono condividere lo stato.
   const [nome, setNome] = useState('');
   const [immagineUrl, setImmagineUrl] = useState('');
   const [gruppoMuscolare, setGruppoMuscolare] = useState('');
   const [caricamentoImmagine, setCaricamentoImmagine] = useState(false);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
-
-  const [selezionato, setSelezionato] = useState(null);
-  const [modificaNome, setModificaNome] = useState('');
-  const [modificaImmagineUrl, setModificaImmagineUrl] = useState('');
-  const [modificaGruppo, setModificaGruppo] = useState('');
-  const [caricamentoImmagineModifica, setCaricamentoImmagineModifica] = useState(false);
-  const [salvataggioModifica, setSalvataggioModifica] = useState(false);
-  const [erroreModifica, setErroreModifica] = useState('');
   const [progressioneCarico, setProgressioneCarico] = useState([]);
 
   const fileInputRef = useRef(null);
-  const fileInputModificaRef = useRef(null);
 
   async function ricarica() {
     const lista = await api.get('/esercizi');
@@ -36,13 +36,23 @@ export default function Esercizi() {
     ricarica();
   }, []);
 
-  useEffect(() => {
-    if (!selezionato) return;
-    setModificaNome(selezionato.nome);
-    setModificaImmagineUrl(selezionato.immagine_url || '');
-    setModificaGruppo(selezionato.gruppo_muscolare || '');
-    setErroreModifica('');
-    api.get(`/esercizi/${selezionato.id}/progressione`).then((dati) => {
+  function apriCreazione() {
+    setNome('');
+    setImmagineUrl('');
+    setGruppoMuscolare('');
+    setErrore('');
+    setFoglio('crea');
+  }
+
+  function apriModifica(esercizio) {
+    setNome(esercizio.nome);
+    setImmagineUrl(esercizio.immagine_url || '');
+    setGruppoMuscolare(esercizio.gruppo_muscolare || '');
+    setErrore('');
+    setProgressioneCarico([]);
+    setFoglio(esercizio);
+
+    api.get(`/esercizi/${esercizio.id}/progressione`).then((dati) => {
       // Punteggio di carico per sessione: somma di ripetizioni × kg × (RPE/10) di tutte
       // le serie di quella data (solo quelle con RPE registrato — dati storici pre-RPE
       // non contribuiscono, non vanno trattati come punteggio 0).
@@ -58,21 +68,25 @@ export default function Esercizi() {
           .map(([data, punteggio]) => ({ data: formattaData(data), punteggio: Math.round(punteggio) }))
       );
     });
-  }, [selezionato]);
+  }
 
-  async function caricaImmagine(file, onFatto, setCaricamento) {
-    setCaricamento(true);
+  function chiudiFoglio() {
+    setFoglio(null);
+  }
+
+  async function caricaImmagine(file) {
+    setCaricamentoImmagine(true);
     try {
       const formData = new FormData();
       formData.append('immagine', file);
       const risultato = await api.post('/esercizi/upload-immagine', formData);
-      onFatto(risultato.immagine_url);
+      setImmagineUrl(risultato.immagine_url);
     } finally {
-      setCaricamento(false);
+      setCaricamentoImmagine(false);
     }
   }
 
-  async function creaEsercizio(e) {
+  async function salvaCreazione(e) {
     e.preventDefault();
     setErrore('');
     setSalvataggio(true);
@@ -82,9 +96,7 @@ export default function Esercizi() {
         immagine_url: immagineUrl || null,
         gruppo_muscolare: gruppoMuscolare || null,
       });
-      setNome('');
-      setImmagineUrl('');
-      setGruppoMuscolare('');
+      chiudiFoglio();
       await ricarica();
     } catch (err) {
       setErrore(err.message);
@@ -94,45 +106,47 @@ export default function Esercizi() {
   }
 
   async function salvaModifiche() {
-    setErroreModifica('');
-    setSalvataggioModifica(true);
+    setErrore('');
+    setSalvataggio(true);
     try {
-      await api.put(`/esercizi/${selezionato.id}`, {
-        nome: modificaNome,
-        immagine_url: modificaImmagineUrl || null,
-        gruppo_muscolare: modificaGruppo || null,
+      await api.put(`/esercizi/${foglio.id}`, {
+        nome,
+        immagine_url: immagineUrl || null,
+        gruppo_muscolare: gruppoMuscolare || null,
       });
-      const aggiornato = {
-        ...selezionato,
-        nome: modificaNome,
-        immagine_url: modificaImmagineUrl || null,
-        gruppo_muscolare: modificaGruppo || null,
-      };
-      setSelezionato(aggiornato);
+      const aggiornato = { ...foglio, nome, immagine_url: immagineUrl || null, gruppo_muscolare: gruppoMuscolare || null };
+      setFoglio(aggiornato);
       setCatalogo((prev) => prev.map((e) => (e.id === aggiornato.id ? aggiornato : e)));
     } catch (err) {
-      setErroreModifica(err.message);
+      setErrore(err.message);
     } finally {
-      setSalvataggioModifica(false);
+      setSalvataggio(false);
     }
   }
 
   async function elimina(id) {
-    setErroreModifica('');
+    setErrore('');
     try {
       await api.del(`/esercizi/${id}`);
-      if (selezionato?.id === id) setSelezionato(null);
+      chiudiFoglio();
       await ricarica();
     } catch (err) {
-      setErroreModifica(err.message);
+      setErrore(err.message);
     }
   }
 
+  const inModifica = foglio && foglio !== 'crea';
   const modificheInSospeso =
-    selezionato &&
-    (modificaNome !== selezionato.nome ||
-      modificaImmagineUrl !== (selezionato.immagine_url || '') ||
-      modificaGruppo !== (selezionato.gruppo_muscolare || ''));
+    inModifica &&
+    (nome !== foglio.nome ||
+      immagineUrl !== (foglio.immagine_url || '') ||
+      gruppoMuscolare !== (foglio.gruppo_muscolare || ''));
+
+  const catalogoFiltrato = catalogo.filter((e) => {
+    const passaGruppo = !filtroGruppo || e.gruppo_muscolare === filtroGruppo;
+    const passaRicerca = !ricerca.trim() || e.nome.toLowerCase().includes(ricerca.trim().toLowerCase());
+    return passaGruppo && passaRicerca;
+  });
 
   if (caricamento) return <div className="loading-schermo">Caricamento…</div>;
 
@@ -140,138 +154,204 @@ export default function Esercizi() {
     <div className="pagina">
       <h1>Esercizi</h1>
 
-      <form onSubmit={creaEsercizio} className="form pannello">
-        <h2>Nuovo esercizio</h2>
-        <div className="riga-esercizio">
-          <div className="riga-esercizio__immagine" onClick={() => fileInputRef.current?.click()}>
-            {immagineUrl ? (
-              <img src={immagineUrl} alt="" />
-            ) : (
-              <span className="riga-esercizio__placeholder">📷</span>
-            )}
-            {caricamentoImmagine && <span className="riga-esercizio__caricamento">…</span>}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => e.target.files[0] && caricaImmagine(e.target.files[0], setImmagineUrl, setCaricamentoImmagine)}
-            />
-          </div>
-          <div className="riga-esercizio__campi">
-            <input
-              placeholder="Nome esercizio (es. Panca piana)"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              required
-            />
-            <select value={gruppoMuscolare} onChange={(e) => setGruppoMuscolare(e.target.value)}>
-              <option value="">Muscoli allenati…</option>
-              {GRUPPI_MUSCOLARI.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        {errore && <p className="messaggio-errore">{errore}</p>}
-        <button type="submit" className="btn btn--primario" disabled={salvataggio}>
-          {salvataggio ? 'Salvataggio…' : '+ Aggiungi al catalogo'}
+      <div className="barra-ricerca">
+        <input
+          type="search"
+          placeholder="Cerca esercizio…"
+          value={ricerca}
+          onChange={(e) => setRicerca(e.target.value)}
+        />
+        <button type="button" className="barra-ricerca__aggiungi" onClick={apriCreazione} aria-label="Nuovo esercizio">
+          +
         </button>
-      </form>
+      </div>
 
-      {catalogo.length === 0 ? (
-        <p className="testo-secondario">Nessun esercizio ancora. Aggiungine uno sopra.</p>
-      ) : (
-        <div className="lista-esercizi-storico">
-          {catalogo.map((e) => (
+      {catalogo.length > 0 && (
+        <div className="filtri-gruppo">
+          <button
+            type="button"
+            className={`filtro-gruppo${filtroGruppo === '' ? ' filtro-gruppo--attivo' : ''}`}
+            onClick={() => setFiltroGruppo('')}
+          >
+            Tutti
+          </button>
+          {GRUPPI_MUSCOLARI.map((g) => (
             <button
-              key={e.id}
-              className={`chip${selezionato?.id === e.id ? ' chip--attivo' : ''}`}
-              onClick={() => setSelezionato(e)}
+              key={g}
+              type="button"
+              className={`filtro-gruppo${filtroGruppo === g ? ' filtro-gruppo--attivo' : ''}`}
+              onClick={() => setFiltroGruppo(filtroGruppo === g ? '' : g)}
             >
-              {e.immagine_url && <img src={e.immagine_url} alt="" />}
-              {e.nome}
-              {e.gruppo_muscolare && <span className="chip__dettaglio"> · {e.gruppo_muscolare}</span>}
-              {' · '}
-              {e.volte_usato}x
+              <span className="filtro-gruppo__puntino" style={{ background: COLORE_GRUPPO[g] }} />
+              {g}
             </button>
           ))}
         </div>
       )}
 
-      {selezionato && (
-        <div className="pannello">
-          <div className="pannello__header">
-            <h2>Modifica esercizio</h2>
-            <button
-              className="btn btn--testo"
-              onClick={() => elimina(selezionato.id)}
-              disabled={selezionato.volte_usato > 0}
-              title={selezionato.volte_usato > 0 ? 'Già usato in un allenamento' : 'Elimina'}
-            >
-              Elimina
+      {catalogo.length === 0 ? (
+        <p className="testo-secondario">Nessun esercizio ancora. Aggiungine uno con +.</p>
+      ) : catalogoFiltrato.length === 0 ? (
+        <p className="testo-secondario">Nessun esercizio corrisponde alla ricerca.</p>
+      ) : (
+        <div className="lista-esercizi-catalogo">
+          {catalogoFiltrato.map((e) => (
+            <button key={e.id} type="button" className="pannello riga-catalogo" onClick={() => apriModifica(e)}>
+              <span className="riga-catalogo__immagine">
+                {e.immagine_url ? (
+                  <img src={e.immagine_url} alt="" />
+                ) : (
+                  <span className="riga-esercizio__placeholder">🏋️</span>
+                )}
+              </span>
+              <span className="riga-catalogo__testi">
+                <span className="riga-catalogo__nome">{e.nome}</span>
+                <span className="riga-catalogo__meta">
+                  {e.gruppo_muscolare && (
+                    <>
+                      <span className="filtro-gruppo__puntino" style={{ background: COLORE_GRUPPO[e.gruppo_muscolare] }} />
+                      {e.gruppo_muscolare} ·{' '}
+                    </>
+                  )}
+                  {e.volte_usato}x
+                </span>
+              </span>
+              <span className="riga-catalogo__freccia">›</span>
             </button>
+          ))}
+        </div>
+      )}
+
+      {foglio && (
+        <div className="foglio-overlay" onClick={chiudiFoglio}>
+          <div className="foglio" onClick={(e) => e.stopPropagation()}>
+            <div className="foglio__maniglia" />
+
+            {foglio === 'crea' ? (
+              <form onSubmit={salvaCreazione}>
+                <div className="foglio__header">
+                  <h2>Nuovo esercizio</h2>
+                  <button type="button" className="foglio__chiudi" onClick={chiudiFoglio} aria-label="Chiudi">
+                    ✕
+                  </button>
+                </div>
+
+                <div className="riga-esercizio">
+                  <div className="riga-esercizio__immagine" onClick={() => fileInputRef.current?.click()}>
+                    {immagineUrl ? (
+                      <img src={immagineUrl} alt="" />
+                    ) : (
+                      <span className="riga-esercizio__placeholder">📷</span>
+                    )}
+                    {caricamentoImmagine && <span className="riga-esercizio__caricamento">…</span>}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => e.target.files[0] && caricaImmagine(e.target.files[0])}
+                    />
+                  </div>
+                  <div className="riga-esercizio__campi">
+                    <input
+                      placeholder="Nome esercizio (es. Panca piana)"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                      required
+                    />
+                    <select value={gruppoMuscolare} onChange={(e) => setGruppoMuscolare(e.target.value)}>
+                      <option value="">Muscoli allenati…</option>
+                      {GRUPPI_MUSCOLARI.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {errore && <p className="messaggio-errore">{errore}</p>}
+                <button type="submit" className="btn btn--primario" disabled={salvataggio}>
+                  {salvataggio ? 'Salvataggio…' : '+ Aggiungi al catalogo'}
+                </button>
+              </form>
+            ) : (
+              <>
+                <div className="foglio__header">
+                  <h2>Modifica esercizio</h2>
+                  <button type="button" className="foglio__chiudi" onClick={chiudiFoglio} aria-label="Chiudi">
+                    ✕
+                  </button>
+                </div>
+
+                <div className="riga-esercizio">
+                  <div className="riga-esercizio__immagine" onClick={() => fileInputRef.current?.click()}>
+                    {immagineUrl ? (
+                      <img src={immagineUrl} alt="" />
+                    ) : (
+                      <span className="riga-esercizio__placeholder">📷</span>
+                    )}
+                    {caricamentoImmagine && <span className="riga-esercizio__caricamento">…</span>}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => e.target.files[0] && caricaImmagine(e.target.files[0])}
+                    />
+                  </div>
+                  <div className="riga-esercizio__campi">
+                    <input value={nome} onChange={(e) => setNome(e.target.value)} required />
+                    <select value={gruppoMuscolare} onChange={(e) => setGruppoMuscolare(e.target.value)}>
+                      <option value="">Muscoli allenati…</option>
+                      {GRUPPI_MUSCOLARI.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {errore && <p className="messaggio-errore">{errore}</p>}
+                <div className="foglio__azioni">
+                  <button
+                    type="button"
+                    className="btn btn--secondario btn--piccolo"
+                    onClick={salvaModifiche}
+                    disabled={salvataggio || !modificheInSospeso}
+                  >
+                    {salvataggio ? 'Salvataggio…' : 'Salva modifiche'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--testo"
+                    onClick={() => elimina(foglio.id)}
+                    disabled={foglio.volte_usato > 0}
+                    title={foglio.volte_usato > 0 ? 'Già usato in un allenamento' : 'Elimina'}
+                  >
+                    Elimina
+                  </button>
+                </div>
+
+                <h3>Punteggio di carico per sessione</h3>
+                {progressioneCarico.length > 1 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={progressioneCarico}>
+                      <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                      <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="punteggio" stroke="#e5484d" strokeWidth={2} dot />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="testo-secondario">
+                    Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × kg × RPE/10).
+                  </p>
+                )}
+              </>
+            )}
           </div>
-
-          <div className="riga-esercizio">
-            <div className="riga-esercizio__immagine" onClick={() => fileInputModificaRef.current?.click()}>
-              {modificaImmagineUrl ? (
-                <img src={modificaImmagineUrl} alt="" />
-              ) : (
-                <span className="riga-esercizio__placeholder">📷</span>
-              )}
-              {caricamentoImmagineModifica && <span className="riga-esercizio__caricamento">…</span>}
-              <input
-                ref={fileInputModificaRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) =>
-                  e.target.files[0] &&
-                  caricaImmagine(e.target.files[0], setModificaImmagineUrl, setCaricamentoImmagineModifica)
-                }
-              />
-            </div>
-            <div className="riga-esercizio__campi">
-              <input value={modificaNome} onChange={(e) => setModificaNome(e.target.value)} required />
-              <select value={modificaGruppo} onChange={(e) => setModificaGruppo(e.target.value)}>
-                <option value="">Muscoli allenati…</option>
-                {GRUPPI_MUSCOLARI.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {erroreModifica && <p className="messaggio-errore">{erroreModifica}</p>}
-          <button
-            type="button"
-            className="btn btn--secondario btn--piccolo"
-            onClick={salvaModifiche}
-            disabled={salvataggioModifica || !modificheInSospeso}
-          >
-            {salvataggioModifica ? 'Salvataggio…' : 'Salva modifiche'}
-          </button>
-
-          <h3>Punteggio di carico per sessione</h3>
-          {progressioneCarico.length > 1 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={progressioneCarico}>
-                <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
-                <Tooltip />
-                <Line type="monotone" dataKey="punteggio" stroke="#e5484d" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="testo-secondario">
-              Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × kg × RPE/10).
-            </p>
-          )}
         </div>
       )}
     </div>
