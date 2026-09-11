@@ -1,4 +1,13 @@
-export default function RigaEsercizio({ esercizio, onCambiaCampo, onBlurCampo, onAggiungiSerie, onRimuoviSerie, onRimuoviEsercizio }) {
+export default function RigaEsercizio({
+  esercizio,
+  punteggioReale,
+  punteggioProiettato,
+  onCambiaCampo,
+  onBlurCampo,
+  onAggiungiSerie,
+  onRimuoviSerie,
+  onRimuoviEsercizio,
+}) {
   const serie = esercizio.serie || [];
 
   return (
@@ -14,6 +23,12 @@ export default function RigaEsercizio({ esercizio, onCambiaCampo, onBlurCampo, o
 
         <div className="riga-esercizio__campi">
           <span className="riga-esercizio__nome-fisso">{esercizio.nome}</span>
+          {punteggioProiettato != null && (
+            <span className="riga-esercizio__punteggio">
+              🏋️ {punteggioProiettato}
+              {punteggioReale != null && punteggioReale !== punteggioProiettato && ` (${punteggioReale} registrato)`}
+            </span>
+          )}
           {esercizio.storicoCaricato && !esercizio.haStorico && (
             <span className="badge-nuovo">nuovo, nessun dato precedente</span>
           )}

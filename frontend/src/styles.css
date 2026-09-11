@@ -468,6 +468,11 @@ textarea:focus {
   font-weight: 600;
 }
 
+.riga-esercizio__punteggio {
+  font-size: 0.8rem;
+  color: var(--colore-testo-secondario);
+}
+
 .badge-nuovo {
   align-self: flex-start;
   background: color-mix(in srgb, var(--colore-primario) 18%, transparent);
