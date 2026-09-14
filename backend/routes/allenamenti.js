@@ -19,6 +19,16 @@ function punteggioSerie(s) {
   return Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
 }
 
+// L'RPE è sulla scala 1-10 (Rate of Perceived Exertion): un valore fuori scala non va mai
+// salvato, altrimenti il punteggio di carico (che divide RPE/10) risulta silenziosamente
+// sballato — capitato in produzione con RPE inseriti già pre-divisi per 10 (es. "0.7"
+// invece di "7"), corretto con una bonifica manuale sui dati esistenti dopo il fatto.
+function rpeFuoriScala(rpe) {
+  if (rpe === '' || rpe === null || rpe === undefined) return false;
+  const n = Number(rpe);
+  return Number.isNaN(n) || n < 1 || n > 10;
+}
+
 // Verifica che l'allenamento_esercizio indicato appartenga a un allenamento dell'utente,
 // e restituisce l'allenamento_id per comodità (evita un giro extra di query ai chiamanti).
 async function trovaAllenamentoEsercizio(utenteId, allenamentoId, aeId) {
@@ -328,6 +338,9 @@ router.post(
     if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
 
     const { ripetizioni, peso_kg, rpe } = req.body;
+    if (rpeFuoriScala(rpe)) {
+      return res.status(400).json({ error: 'RPE deve essere tra 1 e 10' });
+    }
     const [[{ conteggio }]] = await pool.query(
       'SELECT COUNT(*) AS conteggio FROM serie WHERE allenamento_esercizio_id = ?',
       [req.params.aeId]
@@ -351,6 +364,9 @@ router.put(
     if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
 
     const { ripetizioni, peso_kg, rpe } = req.body;
+    if (rpeFuoriScala(rpe)) {
+      return res.status(400).json({ error: 'RPE deve essere tra 1 e 10' });
+    }
     await pool.query(
       'UPDATE serie SET ripetizioni = ?, peso_kg = ?, rpe = ? WHERE id = ? AND allenamento_esercizio_id = ?',
       [ripetizioni || null, peso_kg || null, rpe || null, req.params.serieId, req.params.aeId]
