@@ -126,6 +126,16 @@ router.get(
        LIMIT ?`,
       gruppoMuscolare ? [req.utenteId, gruppoMuscolare, settimane] : [req.utenteId, settimane]
     );
+
+    // Settimane contrassegnate come scarico, per marcare le righe sopra — query separata
+    // invece di un JOIN diretto perché settimana_inizio nella query principale è un'
+    // espressione calcolata (DATE_SUB), non una colonna su cui fare join comodamente.
+    const [scaricoRows] = await pool.query(
+      'SELECT settimana_inizio FROM settimane_scarico WHERE utente_id = ?',
+      [req.utenteId]
+    );
+    const settimaneScarico = new Set(scaricoRows.map((r) => r.settimana_inizio));
+
     res.json(
       rows
         .reverse()
@@ -134,8 +144,34 @@ router.get(
           punteggio_totale: Math.round(Number(r.punteggio_totale)),
           rpe_medio: Number(r.rpe_medio),
           numero_set: r.numero_set,
+          scarico: settimaneScarico.has(r.settimana_inizio),
         }))
     );
+  })
+);
+
+// Contrassegna/toglie il contrassegno di scarico per una settimana (lun-dom, stessa data
+// di settimana_inizio sopra). La sola presenza della riga marca la settimana: toggle via
+// INSERT IGNORE / DELETE, nessun altro stato da aggiornare.
+router.put(
+  '/andamento/scarico',
+  asyncHandler(async (req, res) => {
+    const { settimana_inizio, scarico } = req.body;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(settimana_inizio || '')) {
+      return res.status(400).json({ error: 'settimana_inizio non valida' });
+    }
+    if (scarico) {
+      await pool.query('INSERT IGNORE INTO settimane_scarico (utente_id, settimana_inizio) VALUES (?, ?)', [
+        req.utenteId,
+        settimana_inizio,
+      ]);
+    } else {
+      await pool.query('DELETE FROM settimane_scarico WHERE utente_id = ? AND settimana_inizio = ?', [
+        req.utenteId,
+        settimana_inizio,
+      ]);
+    }
+    res.json({ ok: true, scarico: !!scarico });
   })
 );
 

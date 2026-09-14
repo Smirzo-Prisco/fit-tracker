@@ -20,14 +20,26 @@ function inizioSettimana() {
 const SOGLIA_CRESCITA = 5;
 const SOGLIA_CALO = -15;
 const SOGLIA_RPE_MINORE = -0.3;
+// Punteggio Medio per serie (PMR = punteggio_totale / numero_set): se il punteggio totale
+// cresce ma il PMR cala di oltre il 3%, la crescita viene da PIÙ serie, non da serie
+// migliori — probabile "junk volume" (fatica aggiunta senza reale sovraccarico progressivo).
+const SOGLIA_JUNK_VOLUME = -3;
 
 const VOCI_LEGENDA = [
   {
     chiave: 'crescita',
     icona: '📈',
     titolo: 'In crescita costante',
-    significato: 'Progressione lineare, stai migliorando la forza o la resistenza.',
+    significato: 'Il punteggio sale mantenendo (o migliorando) la resa media per serie: è sovraccarico progressivo reale.',
     azione: 'Continua così, stai applicando il sovraccarico progressivo.',
+  },
+  {
+    chiave: 'junk_volume',
+    icona: '⚠️',
+    titolo: 'Volume in aumento, resa per serie in calo',
+    significato: 'Il punteggio totale sale, ma solo perché hai aggiunto serie: la resa media per singola serie è scesa di oltre il 3%.',
+    azione:
+      'Hai aumentato le serie/volume, ma la prestazione per singola serie è calata. Attento all’accumulo di fatica.',
   },
   {
     chiave: 'stabile',
@@ -48,9 +60,20 @@ const VOCI_LEGENDA = [
     icona: '📉',
     titolo: 'In calo drastico',
     significato: 'Stanchezza accumulata o recupero insufficiente.',
-    azione: 'Programma una settimana di scarico (riduci il punteggio del 30-40%).',
+    azione:
+      'Se prosegue da 2 settimane, programma uno scarico (riduci il punteggio del 30-40%); se è la prima settimana, monitora prima di intervenire.',
   },
 ];
+
+// Variazione percentuale tra due settimane consecutive (per il punteggio totale). Una
+// settimana marcata come scarico (in prima o seconda posizione del confronto) non conta
+// mai come calo: il calo è voluto, non un segnale da correggere — vedi PUT /andamento/scarico.
+function isCaloTransizione(attuale, precedente) {
+  if (!precedente || !precedente.punteggio_totale) return false;
+  if (attuale.scarico || precedente.scarico) return false;
+  const delta = ((attuale.punteggio_totale - precedente.punteggio_totale) / precedente.punteggio_totale) * 100;
+  return delta <= SOGLIA_CALO;
+}
 
 // Confronta l'ultima settimana con dati e la precedente. Richiede almeno due settimane
 // valide (punteggio_totale non nullo, cioè con RPE registrato su almeno una serie).
@@ -59,17 +82,47 @@ function classificaAndamento(settimane) {
   if (valide.length < 2) return null;
   const attuale = valide[valide.length - 1];
   const precedente = valide[valide.length - 2];
+  const precPrecedente = valide.length >= 3 ? valide[valide.length - 3] : null;
 
   const deltaPercento = ((attuale.punteggio_totale - precedente.punteggio_totale) / precedente.punteggio_totale) * 100;
   const deltaRpe = attuale.rpe_medio - precedente.rpe_medio;
 
-  let chiave;
-  if (deltaPercento <= SOGLIA_CALO) chiave = 'calo';
-  else if (deltaPercento >= SOGLIA_CRESCITA) chiave = 'crescita';
-  else if (deltaRpe <= SOGLIA_RPE_MINORE) chiave = 'rpe_minore';
-  else chiave = 'stabile';
+  // PMR (punteggio medio per serie): quanto rende, in media, ogni singola serie della
+  // settimana. Confrontato tra le due settimane distingue "più forte" da "più stanco".
+  const pmrAttuale = attuale.numero_set > 0 ? attuale.punteggio_totale / attuale.numero_set : null;
+  const pmrPrecedente = precedente.numero_set > 0 ? precedente.punteggio_totale / precedente.numero_set : null;
+  const deltaPmrPercento =
+    pmrAttuale != null && pmrPrecedente != null && pmrPrecedente !== 0
+      ? ((pmrAttuale - pmrPrecedente) / pmrPrecedente) * 100
+      : null;
 
-  return { ...VOCI_LEGENDA.find((v) => v.chiave === chiave), deltaPercento, deltaRpe };
+  let chiave;
+  let azione; // Se valorizzata, sovrascrive l'azione statica di VOCI_LEGENDA (solo per "calo").
+
+  if (isCaloTransizione(attuale, precedente)) {
+    chiave = 'calo';
+    // La settimana scorsa era di scarico apposta: nessun altro scarico da consigliare ora.
+    const scaricoSettimanaScorsa = precedente.scarico === true;
+    // Due cali consecutivi (questa settimana rispetto alla scorsa, E la scorsa rispetto
+    // a quella prima ancora): solo allora si consiglia davvero uno scarico programmato.
+    const caloDaDueSettimane = !scaricoSettimanaScorsa && isCaloTransizione(precedente, precPrecedente);
+    if (scaricoSettimanaScorsa) {
+      azione = 'Hai già fatto scarico la settimana scorsa: è normale un assestamento, nessun altro scarico necessario ora.';
+    } else if (caloDaDueSettimane) {
+      azione = 'Il calo prosegue da almeno due settimane: programma una settimana di scarico (riduci il punteggio del 30-40%).';
+    } else {
+      azione = 'Potrebbe essere un calo occasionale (riposo, stress, alimentazione): monitora la prossima settimana prima di intervenire.';
+    }
+  } else if (deltaPercento >= SOGLIA_CRESCITA) {
+    chiave = deltaPmrPercento != null && deltaPmrPercento < SOGLIA_JUNK_VOLUME ? 'junk_volume' : 'crescita';
+  } else if (deltaRpe <= SOGLIA_RPE_MINORE) {
+    chiave = 'rpe_minore';
+  } else {
+    chiave = 'stabile';
+  }
+
+  const voce = VOCI_LEGENDA.find((v) => v.chiave === chiave);
+  return { ...voce, azione: azione ?? voce.azione, deltaPercento, deltaRpe, deltaPmrPercento };
 }
 
 export default function Dashboard() {
@@ -105,6 +158,15 @@ export default function Dashboard() {
     [andamento]
   );
   const classificazione = useMemo(() => classificaAndamento(andamento), [andamento]);
+
+  // Ultima settimana con dati: è l'unica su cui ha senso proporre il toggle scarico
+  // (contrassegnare settimane passate non serve, la classificazione guarda solo le ultime due).
+  const ultimaSettimana = andamento[andamento.length - 1];
+
+  async function toggleScarico(settimanaInizio, scarico) {
+    await api.put('/allenamenti/andamento/scarico', { settimana_inizio: settimanaInizio, scarico });
+    setAndamento((prev) => prev.map((s) => (s.settimana_inizio === settimanaInizio ? { ...s, scarico } : s)));
+  }
 
   const datiPeso = useMemo(
     () =>
@@ -188,6 +250,20 @@ export default function Dashboard() {
           </p>
         ) : (
           <>
+            {ultimaSettimana && (
+              <div className="carico-meta">
+                <span className="testo-secondario">🔢 {ultimaSettimana.numero_set} serie questa settimana</span>
+                <label className="toggle-scarico">
+                  <input
+                    type="checkbox"
+                    checked={ultimaSettimana.scarico}
+                    onChange={(e) => toggleScarico(ultimaSettimana.settimana_inizio, e.target.checked)}
+                  />
+                  Settimana di scarico
+                </label>
+              </div>
+            )}
+
             {datiCarico.length > 1 && (
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={datiCarico}>

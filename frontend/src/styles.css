@@ -240,6 +240,24 @@ a {
   gap: 10px;
 }
 
+.carico-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.toggle-scarico {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--colore-testo-secondario);
+  cursor: pointer;
+}
+
 .carico-classificazione {
   display: flex;
   gap: 10px;

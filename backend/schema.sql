@@ -89,6 +89,17 @@ CREATE TABLE IF NOT EXISTS allenamento_esercizi (
   INDEX idx_allenamento_esercizi_esercizio (esercizio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Settimane (lun-dom, stessa convenzione di GET /allenamenti/andamento) che l'utente ha
+-- contrassegnato esplicitamente come scarico: un calo di punteggio in quella settimana è
+-- voluto, non un segnale di stanchezza da correggere. La sola presenza della riga marca
+-- la settimana; nessuna colonna aggiuntiva necessaria.
+CREATE TABLE IF NOT EXISTS settimane_scarico (
+  utente_id INT NOT NULL,
+  settimana_inizio DATE NOT NULL,
+  PRIMARY KEY (utente_id, settimana_inizio),
+  FOREIGN KEY (utente_id) REFERENCES utente(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS serie (
   id INT PRIMARY KEY AUTO_INCREMENT,
   allenamento_esercizio_id INT NOT NULL,
