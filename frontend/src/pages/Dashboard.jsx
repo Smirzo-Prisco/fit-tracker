@@ -13,6 +13,13 @@ function inizioSettimana() {
   return oggi;
 }
 
+// Stesso lunedì di inizioSettimana(), ma come stringa "YYYY-MM-DD" per confrontarlo
+// con settimana_inizio (una DATE del DB, restituita come stringa da mysql2).
+function inizioSettimanaIso() {
+  const d = inizioSettimana();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Soglie per classificare l'andamento settimana-su-settimana del punteggio di carico
 // (Serie × Ripetizioni × Kg × RPE/10). Sotto il 5% di variazione si considera "stabile":
 // lì la differenza la fa l'RPE medio (stesso lavoro percepito come più leggero = si è
@@ -75,14 +82,22 @@ function isCaloTransizione(attuale, precedente) {
   return delta <= SOGLIA_CALO;
 }
 
-// Confronta l'ultima settimana con dati e la precedente. Richiede almeno due settimane
-// valide (punteggio_totale non nullo, cioè con RPE registrato su almeno una serie).
-function classificaAndamento(settimane) {
+// Confronta l'ultima settimana CONCLUSA con dati e la precedente. Richiede almeno due
+// settimane valide (punteggio_totale non nullo, cioè con RPE registrato su almeno una
+// serie). La settimana in corso viene esclusa dal confronto: il suo totale è per forza
+// parziale (mancano ancora giorni/allenamenti), quindi sembrerebbe quasi sempre un calo
+// rispetto a una settimana conclusa anche a parità di ritmo — resta visibile nel grafico,
+// ma non entra nella classificazione finché non è finita.
+function classificaAndamento(settimane, settimanaCorrenteIso) {
   const valide = settimane.filter((s) => s.punteggio_totale != null);
-  if (valide.length < 2) return null;
-  const attuale = valide[valide.length - 1];
-  const precedente = valide[valide.length - 2];
-  const precPrecedente = valide.length >= 3 ? valide[valide.length - 3] : null;
+  const concluse = valide.filter((s) => s.settimana_inizio !== settimanaCorrenteIso);
+  if (concluse.length < 2) {
+    const inCorso = valide.some((s) => s.settimana_inizio === settimanaCorrenteIso);
+    return inCorso ? { inCorso: true } : null;
+  }
+  const attuale = concluse[concluse.length - 1];
+  const precedente = concluse[concluse.length - 2];
+  const precPrecedente = concluse.length >= 3 ? concluse[concluse.length - 3] : null;
 
   const deltaPercento = ((attuale.punteggio_totale - precedente.punteggio_totale) / precedente.punteggio_totale) * 100;
   const deltaRpe = attuale.rpe_medio - precedente.rpe_medio;
@@ -157,7 +172,7 @@ export default function Dashboard() {
     () => andamento.map((s) => ({ settimana: formattaData(s.settimana_inizio), punteggio: s.punteggio_totale })),
     [andamento]
   );
-  const classificazione = useMemo(() => classificaAndamento(andamento), [andamento]);
+  const classificazione = useMemo(() => classificaAndamento(andamento, inizioSettimanaIso()), [andamento]);
 
   // Ultima settimana con dati: è l'unica su cui ha senso proporre il toggle scarico
   // (contrassegnare settimane passate non serve, la classificazione guarda solo le ultime due).
@@ -275,7 +290,18 @@ export default function Dashboard() {
               </ResponsiveContainer>
             )}
 
-            {classificazione ? (
+            {classificazione?.inCorso ? (
+              <div className="carico-classificazione">
+                <span className="carico-classificazione__icona">⏳</span>
+                <div>
+                  <strong>Settimana in corso</strong>
+                  <p className="testo-secondario">
+                    Il punteggio è ancora parziale: il confronto con la settimana precedente sarà disponibile a
+                    settimana conclusa.
+                  </p>
+                </div>
+              </div>
+            ) : classificazione ? (
               <div className="carico-classificazione">
                 <span className="carico-classificazione__icona">{classificazione.icona}</span>
                 <div>
@@ -286,7 +312,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <p className="testo-secondario">
-                Registra l'RPE per almeno due settimane di allenamenti per vedere l'andamento.
+                Registra l'RPE per almeno due settimane concluse di allenamenti per vedere l'andamento.
               </p>
             )}
 
