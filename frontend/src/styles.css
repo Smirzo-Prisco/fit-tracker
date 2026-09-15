@@ -573,6 +573,43 @@ textarea:focus {
   margin-left: 66px;
 }
 
+/* --- Editore gruppi muscolari (form esercizio) --- */
+
+.editore-gruppi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.editore-gruppi__etichetta {
+  font-size: 0.8rem;
+  color: var(--colore-testo-secondario);
+}
+
+.editore-gruppi__riga {
+  display: grid;
+  grid-template-columns: 1fr 60px auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.editore-gruppi__riga select,
+.editore-gruppi__riga input {
+  padding: 8px 6px;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.editore-gruppi__riga input {
+  text-align: center;
+}
+
+.editore-gruppi__aggiungi {
+  align-self: flex-start;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
 /* --- Schede --- */
 
 .lista-scheda-esercizi {
@@ -762,9 +799,16 @@ textarea:focus {
 .riga-catalogo__meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px 6px;
   font-size: 0.8rem;
   color: var(--colore-testo-secondario);
+}
+
+.riga-catalogo__gruppo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .riga-catalogo__freccia {

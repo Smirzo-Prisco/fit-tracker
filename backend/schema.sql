@@ -40,8 +40,19 @@ CREATE TABLE IF NOT EXISTS esercizi (
   id INT PRIMARY KEY AUTO_INCREMENT,
   nome VARCHAR(150) NOT NULL UNIQUE,
   immagine_url VARCHAR(255),
-  gruppo_muscolare VARCHAR(100),
   creato_il DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Un esercizio allena più gruppi muscolari con coinvolgimento diverso (es. Panca piana:
+-- Petto 100%, Tricipiti 70%, Spalle 30%). La percentuale non deve sommare a 100 tra le
+-- righe: è la quota del punteggio di quell'esercizio da attribuire a QUEL gruppo, non una
+-- ripartizione — vedi GET /allenamenti/andamento che la usa per pesare il punteggio.
+CREATE TABLE IF NOT EXISTS esercizio_gruppi_muscolari (
+  esercizio_id INT NOT NULL,
+  gruppo_muscolare VARCHAR(100) NOT NULL,
+  percentuale TINYINT UNSIGNED NOT NULL,
+  PRIMARY KEY (esercizio_id, gruppo_muscolare),
+  FOREIGN KEY (esercizio_id) REFERENCES esercizi(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Scheda = gruppo ordinato e riusabile di esercizi (es. "Scheda A - Petto/Tricipiti").

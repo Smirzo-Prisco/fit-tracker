@@ -118,23 +118,29 @@ router.get(
     if (gruppoMuscolare && !GRUPPI_MUSCOLARI.includes(gruppoMuscolare)) {
       return res.status(400).json({ error: 'Gruppo muscolare non valido' });
     }
+    // Filtrato per gruppo: pesa il punteggio di ogni serie per la percentuale di
+    // coinvolgimento di QUEL gruppo nell'esercizio (es. Tricipiti 70% su Panca piana
+    // conta 70% del punteggio della serie), invece del totale intero come per "Tutti i
+    // gruppi". Il JOIN su esercizio_gruppi_muscolari filtra già solo le serie di
+    // esercizi che allenano quel gruppo, ed essendo la sua PK (esercizio_id,
+    // gruppo_muscolare) non introduce righe duplicate per serie.
     const [rows] = await pool.query(
       `SELECT
          DATE_SUB(a.data, INTERVAL WEEKDAY(a.data) DAY) AS settimana_inizio,
-         SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)) AS punteggio_totale,
+         SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)${gruppoMuscolare ? ' * (egm.percentuale / 100)' : ''}) AS punteggio_totale,
          AVG(s.rpe) AS rpe_medio,
          COUNT(s.id) AS numero_set
        FROM serie s
        JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
        JOIN allenamenti a ON a.id = ae.allenamento_id
        JOIN esercizi e ON e.id = ae.esercizio_id
+       ${gruppoMuscolare ? 'JOIN esercizio_gruppi_muscolari egm ON egm.esercizio_id = e.id AND egm.gruppo_muscolare = ?' : ''}
        WHERE a.utente_id = ?
          AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
-         ${gruppoMuscolare ? 'AND e.gruppo_muscolare = ?' : ''}
        GROUP BY settimana_inizio
        ORDER BY settimana_inizio DESC
        LIMIT ?`,
-      gruppoMuscolare ? [req.utenteId, gruppoMuscolare, settimane] : [req.utenteId, settimane]
+      gruppoMuscolare ? [gruppoMuscolare, req.utenteId, settimane] : [req.utenteId, settimane]
     );
 
     // Settimane contrassegnate come scarico, per marcare le righe sopra — query separata

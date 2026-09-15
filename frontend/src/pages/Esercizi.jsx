@@ -18,7 +18,9 @@ export default function Esercizi() {
   // uno dei due form, mai entrambi, quindi possono condividere lo stato.
   const [nome, setNome] = useState('');
   const [immagineUrl, setImmagineUrl] = useState('');
-  const [gruppoMuscolare, setGruppoMuscolare] = useState('');
+  // Array { gruppo_muscolare, percentuale }: un esercizio allena più gruppi con pesi
+  // diversi (es. Panca piana: Petto 100%, Tricipiti 70%, Spalle 30%), non un gruppo solo.
+  const [gruppiMuscolari, setGruppiMuscolari] = useState([]);
   const [caricamentoImmagine, setCaricamentoImmagine] = useState(false);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
@@ -39,7 +41,7 @@ export default function Esercizi() {
   function apriCreazione() {
     setNome('');
     setImmagineUrl('');
-    setGruppoMuscolare('');
+    setGruppiMuscolari([]);
     setErrore('');
     setFoglio('crea');
   }
@@ -47,7 +49,7 @@ export default function Esercizi() {
   function apriModifica(esercizio) {
     setNome(esercizio.nome);
     setImmagineUrl(esercizio.immagine_url || '');
-    setGruppoMuscolare(esercizio.gruppo_muscolare || '');
+    setGruppiMuscolari(esercizio.gruppi_muscolari || []);
     setErrore('');
     setProgressioneCarico([]);
     setFoglio(esercizio);
@@ -86,6 +88,20 @@ export default function Esercizi() {
     }
   }
 
+  function aggiungiGruppo() {
+    const disponibile = GRUPPI_MUSCOLARI.find((g) => !gruppiMuscolari.some((r) => r.gruppo_muscolare === g));
+    if (!disponibile) return;
+    setGruppiMuscolari((prev) => [...prev, { gruppo_muscolare: disponibile, percentuale: 100 }]);
+  }
+
+  function aggiornaGruppo(indice, campo, valore) {
+    setGruppiMuscolari((prev) => prev.map((r, i) => (i === indice ? { ...r, [campo]: valore } : r)));
+  }
+
+  function rimuoviGruppo(indice) {
+    setGruppiMuscolari((prev) => prev.filter((_, i) => i !== indice));
+  }
+
   async function salvaCreazione(e) {
     e.preventDefault();
     setErrore('');
@@ -94,7 +110,7 @@ export default function Esercizi() {
       await api.post('/esercizi', {
         nome,
         immagine_url: immagineUrl || null,
-        gruppo_muscolare: gruppoMuscolare || null,
+        gruppi_muscolari: gruppiMuscolari,
       });
       chiudiFoglio();
       await ricarica();
@@ -112,9 +128,9 @@ export default function Esercizi() {
       await api.put(`/esercizi/${foglio.id}`, {
         nome,
         immagine_url: immagineUrl || null,
-        gruppo_muscolare: gruppoMuscolare || null,
+        gruppi_muscolari: gruppiMuscolari,
       });
-      const aggiornato = { ...foglio, nome, immagine_url: immagineUrl || null, gruppo_muscolare: gruppoMuscolare || null };
+      const aggiornato = { ...foglio, nome, immagine_url: immagineUrl || null, gruppi_muscolari: gruppiMuscolari };
       setFoglio(aggiornato);
       setCatalogo((prev) => prev.map((e) => (e.id === aggiornato.id ? aggiornato : e)));
     } catch (err) {
@@ -141,13 +157,56 @@ export default function Esercizi() {
     inModifica &&
     (nome !== foglio.nome ||
       immagineUrl !== (foglio.immagine_url || '') ||
-      gruppoMuscolare !== (foglio.gruppo_muscolare || ''));
+      JSON.stringify(gruppiMuscolari) !== JSON.stringify(foglio.gruppi_muscolari || []));
 
   const catalogoFiltrato = catalogo.filter((e) => {
-    const passaGruppo = !filtroGruppo || e.gruppo_muscolare === filtroGruppo;
+    const passaGruppo = !filtroGruppo || (e.gruppi_muscolari || []).some((g) => g.gruppo_muscolare === filtroGruppo);
     const passaRicerca = !ricerca.trim() || e.nome.toLowerCase().includes(ricerca.trim().toLowerCase());
     return passaGruppo && passaRicerca;
   });
+
+  const editoreGruppi = (
+    <div className="editore-gruppi">
+      <span className="editore-gruppi__etichetta">Muscoli allenati</span>
+      {gruppiMuscolari.map((riga, i) => (
+        <div className="editore-gruppi__riga" key={riga.gruppo_muscolare}>
+          <select
+            value={riga.gruppo_muscolare}
+            onChange={(e) => aggiornaGruppo(i, 'gruppo_muscolare', e.target.value)}
+          >
+            {GRUPPI_MUSCOLARI.filter(
+              (g) => g === riga.gruppo_muscolare || !gruppiMuscolari.some((r) => r.gruppo_muscolare === g)
+            ).map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={riga.percentuale}
+            onChange={(e) => aggiornaGruppo(i, 'percentuale', e.target.value)}
+          />
+          <span>%</span>
+          <button
+            type="button"
+            className="riga-serie__rimuovi"
+            onClick={() => rimuoviGruppo(i)}
+            aria-label="Rimuovi gruppo muscolare"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      {gruppiMuscolari.length < GRUPPI_MUSCOLARI.length && (
+        <button type="button" className="btn btn--testo editore-gruppi__aggiungi" onClick={aggiungiGruppo}>
+          + Muscolo
+        </button>
+      )}
+    </div>
+  );
 
   if (caricamento) return <div className="loading-schermo">Caricamento…</div>;
 
@@ -208,12 +267,13 @@ export default function Esercizi() {
               <span className="riga-catalogo__testi">
                 <span className="riga-catalogo__nome">{e.nome}</span>
                 <span className="riga-catalogo__meta">
-                  {e.gruppo_muscolare && (
-                    <>
-                      <span className="filtro-gruppo__puntino" style={{ background: COLORE_GRUPPO[e.gruppo_muscolare] }} />
-                      {e.gruppo_muscolare} ·{' '}
-                    </>
-                  )}
+                  {(e.gruppi_muscolari || []).map((g) => (
+                    <span key={g.gruppo_muscolare} className="riga-catalogo__gruppo">
+                      <span className="filtro-gruppo__puntino" style={{ background: COLORE_GRUPPO[g.gruppo_muscolare] }} />
+                      {g.gruppo_muscolare} {g.percentuale}%
+                    </span>
+                  ))}
+                  {e.gruppi_muscolari?.length > 0 && ' · '}
                   {e.volte_usato}x
                 </span>
               </span>
@@ -260,16 +320,10 @@ export default function Esercizi() {
                       onChange={(e) => setNome(e.target.value)}
                       required
                     />
-                    <select value={gruppoMuscolare} onChange={(e) => setGruppoMuscolare(e.target.value)}>
-                      <option value="">Muscoli allenati…</option>
-                      {GRUPPI_MUSCOLARI.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
+
+                {editoreGruppi}
 
                 {errore && <p className="messaggio-errore">{errore}</p>}
                 <button type="submit" className="btn btn--primario" disabled={salvataggio}>
@@ -303,16 +357,10 @@ export default function Esercizi() {
                   </div>
                   <div className="riga-esercizio__campi">
                     <input value={nome} onChange={(e) => setNome(e.target.value)} required />
-                    <select value={gruppoMuscolare} onChange={(e) => setGruppoMuscolare(e.target.value)}>
-                      <option value="">Muscoli allenati…</option>
-                      {GRUPPI_MUSCOLARI.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
+
+                {editoreGruppi}
 
                 {errore && <p className="messaggio-errore">{errore}</p>}
                 <div className="foglio__azioni">
