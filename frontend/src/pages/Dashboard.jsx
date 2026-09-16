@@ -168,10 +168,28 @@ export default function Dashboard() {
       .finally(() => setCaricamentoAndamento(false));
   }, [gruppoSelezionato]);
 
-  const datiCarico = useMemo(
-    () => andamento.map((s) => ({ settimana: formattaData(s.settimana_inizio), punteggio: s.punteggio_totale })),
-    [andamento]
-  );
+  // Per la settimana in corso usa la proiezione (reale finora + stima dei giorni
+  // mancanti sullo stesso giorno della settimana) invece del solo totale parziale, che
+  // sembrerebbe sempre un calo rispetto a una settimana conclusa. Il punto proiettato va
+  // su una serie separata (punteggioProiezione) disegnata tratteggiata, per non far
+  // sembrare una stima un dato reale già confermato; punteggioProiezione riprende anche
+  // il valore del punto precedente così la linea tratteggiata si aggancia a quella piena
+  // invece di partire staccata.
+  const datiCarico = useMemo(() => {
+    const dati = andamento.map((s, i, arr) => {
+      const inProiezione = i === arr.length - 1 && s.punteggio_proiettato != null;
+      return {
+        settimana: formattaData(s.settimana_inizio),
+        punteggio: inProiezione ? null : s.punteggio_totale,
+        punteggioProiezione: inProiezione ? s.punteggio_proiettato : null,
+      };
+    });
+    if (dati.length >= 2 && dati[dati.length - 1].punteggioProiezione != null) {
+      dati[dati.length - 2].punteggioProiezione = dati[dati.length - 2].punteggio;
+    }
+    return dati;
+  }, [andamento]);
+  const inProiezione = andamento.length > 0 && andamento[andamento.length - 1].punteggio_proiettato != null;
   const classificazione = useMemo(() => classificaAndamento(andamento, inizioSettimanaIso()), [andamento]);
 
   // Ultima settimana con dati: è l'unica su cui ha senso proporre il toggle scarico
@@ -280,14 +298,31 @@ export default function Dashboard() {
             )}
 
             {datiCarico.length > 1 && (
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={datiCarico}>
-                  <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
-                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={datiCarico}>
+                    <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
+                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="punteggioProiezione"
+                      name="Proiezione"
+                      stroke="#e5484d"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                {inProiezione && (
+                  <p className="testo-secondario">
+                    🔮 L'ultimo punto (tratteggiato) è una proiezione: al reale di questa settimana somma, per i
+                    giorni non ancora trascorsi, il tuo ultimo risultato in quello stesso giorno della settimana.
+                  </p>
+                )}
+              </>
             )}
 
             {classificazione?.inCorso ? (
@@ -296,8 +331,8 @@ export default function Dashboard() {
                 <div>
                   <strong>Settimana in corso</strong>
                   <p className="testo-secondario">
-                    Il punteggio è ancora parziale: il confronto con la settimana precedente sarà disponibile a
-                    settimana conclusa.
+                    Il grafico mostra già una proiezione, ma la classificazione dell'andamento (in crescita, in calo,
+                    stabile…) userà i dati reali: sarà disponibile a settimana conclusa.
                   </p>
                 </div>
               </div>

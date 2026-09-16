@@ -123,18 +123,24 @@ router.get(
     // conta 70% del punteggio della serie), invece del totale intero come per "Tutti i
     // gruppi". Il JOIN su esercizio_gruppi_muscolari filtra già solo le serie di
     // esercizi che allenano quel gruppo, ed essendo la sua PK (esercizio_id,
-    // gruppo_muscolare) non introduce righe duplicate per serie.
+    // gruppo_muscolare) non introduce righe duplicate per serie. Riusato anche dalla
+    // query di proiezione qui sotto.
+    const joinGruppo = gruppoMuscolare
+      ? 'JOIN esercizio_gruppi_muscolari egm ON egm.esercizio_id = e.id AND egm.gruppo_muscolare = ?'
+      : '';
+    const pesoGruppo = gruppoMuscolare ? ' * (egm.percentuale / 100)' : '';
+
     const [rows] = await pool.query(
       `SELECT
          DATE_SUB(a.data, INTERVAL WEEKDAY(a.data) DAY) AS settimana_inizio,
-         SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)${gruppoMuscolare ? ' * (egm.percentuale / 100)' : ''}) AS punteggio_totale,
+         SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)${pesoGruppo}) AS punteggio_totale,
          AVG(s.rpe) AS rpe_medio,
          COUNT(s.id) AS numero_set
        FROM serie s
        JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
        JOIN allenamenti a ON a.id = ae.allenamento_id
        JOIN esercizi e ON e.id = ae.esercizio_id
-       ${gruppoMuscolare ? 'JOIN esercizio_gruppi_muscolari egm ON egm.esercizio_id = e.id AND egm.gruppo_muscolare = ?' : ''}
+       ${joinGruppo}
        WHERE a.utente_id = ?
          AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
        GROUP BY settimana_inizio
@@ -152,12 +158,54 @@ router.get(
     );
     const settimaneScarico = new Set(scaricoRows.map((r) => r.settimana_inizio));
 
+    // Proiezione della settimana in corso: al totale reale già fatto (rows[0], la
+    // settimana più recente, se è quella corrente) si somma una stima per i giorni non
+    // ancora trascorsi, presa dall'ultimo valore reale registrato in quello stesso
+    // giorno della settimana (stesso principio di "ultimo reale noto" già usato per
+    // punteggio_previsto in GET /allenamenti) — non una media, il dato più recente. Un
+    // giorno mai allenato storicamente conta 0: è probabile sia un giorno di riposo
+    // abituale, non un buco da colmare.
+    let proiezioneSettimanaCorrente = null;
+    if (rows.length > 0) {
+      const [[{ inizio, oggiSettimana }]] = await pool.query(
+        'SELECT DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AS inizio, WEEKDAY(CURDATE()) AS oggiSettimana'
+      );
+      if (rows[0].settimana_inizio === inizio) {
+        const [storicoGiorni] = await pool.query(
+          `SELECT WEEKDAY(a.data) AS giorno_settimana,
+                  SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)${pesoGruppo}) AS punteggio
+           FROM serie s
+           JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
+           JOIN allenamenti a ON a.id = ae.allenamento_id
+           JOIN esercizi e ON e.id = ae.esercizio_id
+           ${joinGruppo}
+           WHERE a.utente_id = ? AND a.data < ?
+             AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
+           GROUP BY DATE(a.data), WEEKDAY(a.data)
+           ORDER BY DATE(a.data) DESC`,
+          gruppoMuscolare ? [gruppoMuscolare, req.utenteId, inizio] : [req.utenteId, inizio]
+        );
+        const ultimoPerGiornoSettimana = {};
+        for (const r of storicoGiorni) {
+          if (!(r.giorno_settimana in ultimoPerGiornoSettimana)) {
+            ultimoPerGiornoSettimana[r.giorno_settimana] = Number(r.punteggio);
+          }
+        }
+        let stimaRestante = 0;
+        for (let gs = oggiSettimana + 1; gs <= 6; gs++) {
+          stimaRestante += ultimoPerGiornoSettimana[gs] ?? 0;
+        }
+        proiezioneSettimanaCorrente = Math.round(Number(rows[0].punteggio_totale) + stimaRestante);
+      }
+    }
+
     res.json(
       rows
         .reverse()
-        .map((r) => ({
+        .map((r, i, arr) => ({
           settimana_inizio: r.settimana_inizio,
           punteggio_totale: Math.round(Number(r.punteggio_totale)),
+          punteggio_proiettato: i === arr.length - 1 ? proiezioneSettimanaCorrente : null,
           rpe_medio: Number(r.rpe_medio),
           numero_set: r.numero_set,
           scarico: settimaneScarico.has(r.settimana_inizio),
