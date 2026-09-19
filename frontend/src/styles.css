@@ -7,6 +7,7 @@
   --colore-primario: #1e6feb;
   --colore-primario-testo: #ffffff;
   --colore-errore: #e5484d;
+  --colore-attenzione: #e0a53a;
   --raggio: 12px;
   --spaziatura: 16px;
   color-scheme: dark;
@@ -231,6 +232,15 @@ a {
 
 .messaggio-errore {
   color: var(--colore-errore);
+  font-size: 0.85rem;
+}
+
+.messaggio-avviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--colore-attenzione);
   font-size: 0.85rem;
 }
 

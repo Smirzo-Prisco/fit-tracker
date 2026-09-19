@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
 import { GRUPPI_MUSCOLARI, COLORE_GRUPPO } from '../lib/gruppiMuscolari';
+import { trovaEsercizioSimile } from '../lib/similitudineEsercizi';
 
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
@@ -165,6 +166,29 @@ export default function Esercizi() {
     return passaGruppo && passaRicerca;
   });
 
+  // Avviso (non bloccante) se il nome digitato è uguale o molto simile a uno già
+  // in catalogo — evita doppioni tipo "Chest press" / "Chest Press" / "Ches press"
+  // che frammenterebbero lo storico dell'esercizio. In modifica esclude l'esercizio
+  // stesso, altrimenti troverebbe sempre "se stesso" come duplicato esatto.
+  const esercizioSimile = useMemo(
+    () => trovaEsercizioSimile(nome, catalogo, inModifica ? foglio.id : null),
+    [nome, catalogo, inModifica, foglio]
+  );
+
+  const avvisoSimile = esercizioSimile && (
+    <p className="messaggio-avviso">
+      <span>
+        {esercizioSimile.esatto ? 'Esiste già un esercizio con questo nome: ' : 'Esiste già un esercizio simile: '}
+        <strong>{esercizioSimile.esercizio.nome}</strong>
+      </span>
+      {!inModifica && (
+        <button type="button" className="btn btn--testo btn--piccolo" onClick={() => apriModifica(esercizioSimile.esercizio)}>
+          Apri invece questo
+        </button>
+      )}
+    </p>
+  );
+
   const editoreGruppi = (
     <div className="editore-gruppi">
       <span className="editore-gruppi__etichetta">Muscoli allenati</span>
@@ -324,6 +348,7 @@ export default function Esercizi() {
                 </div>
 
                 {editoreGruppi}
+                {avvisoSimile}
 
                 {errore && <p className="messaggio-errore">{errore}</p>}
                 <button type="submit" className="btn btn--primario" disabled={salvataggio}>
@@ -361,6 +386,7 @@ export default function Esercizi() {
                 </div>
 
                 {editoreGruppi}
+                {avvisoSimile}
 
                 {errore && <p className="messaggio-errore">{errore}</p>}
                 <div className="foglio__azioni">
