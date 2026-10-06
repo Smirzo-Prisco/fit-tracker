@@ -1,7 +1,6 @@
 export default function RigaEsercizio({
   esercizio,
-  punteggioReale,
-  punteggioProiettato,
+  punteggioCorrente,
   onCambiaCampo,
   onBlurCampo,
   onAggiungiSerie,
@@ -9,6 +8,11 @@ export default function RigaEsercizio({
   onRimuoviEsercizio,
 }) {
   const serie = esercizio.serie || [];
+  // Punteggio dell'ultima volta che questo esercizio è stato svolto (sessione
+  // diversa, vedi GET /esercizi/:id/ultima-sessione) — un dato storico fisso,
+  // non il valore "proiettato" che mischiava reale e placeholder: qui servono
+  // due numeri distinti e sempre coerenti con quello che chiedi, non un ibrido.
+  const punteggioUltimo = esercizio.haStorico ? Math.round(esercizio.storicoPunteggio) : null;
 
   return (
     <div className="blocco-esercizio">
@@ -23,14 +27,26 @@ export default function RigaEsercizio({
 
         <div className="riga-esercizio__campi">
           <span className="riga-esercizio__nome-fisso">{esercizio.nome}</span>
-          {punteggioProiettato != null && (
-            <span className="riga-esercizio__punteggio">
-              🏋️ {punteggioProiettato}
-              {punteggioReale != null && punteggioReale !== punteggioProiettato && ` (${punteggioReale} registrato)`}
-            </span>
-          )}
-          {esercizio.storicoCaricato && !esercizio.haStorico && (
-            <span className="badge-nuovo">nuovo, nessun dato precedente</span>
+          {esercizio.storicoCaricato && (
+            punteggioUltimo != null ? (
+              <span className="riga-esercizio__punteggio">
+                Ultimo: <strong>{punteggioUltimo}</strong>
+                {punteggioCorrente != null && (
+                  <>
+                    {' · '}Attuale: <strong>{punteggioCorrente}</strong>
+                  </>
+                )}
+              </span>
+            ) : (
+              <>
+                <span className="badge-nuovo">nuovo, nessun dato precedente</span>
+                {punteggioCorrente != null && (
+                  <span className="riga-esercizio__punteggio">
+                    Attuale: <strong>{punteggioCorrente}</strong>
+                  </span>
+                )}
+              </>
+            )
           )}
         </div>
 

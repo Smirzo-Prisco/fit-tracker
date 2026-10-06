@@ -45,11 +45,12 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.query(
-      `SELECT a.*, COUNT(ae.id) AS numero_esercizi
+      `SELECT a.*, s.nome AS scheda_nome, COUNT(ae.id) AS numero_esercizi
        FROM allenamenti a
+       LEFT JOIN schede s ON s.id = a.scheda_id
        LEFT JOIN allenamento_esercizi ae ON ae.allenamento_id = a.id
        WHERE a.utente_id = ?
-       GROUP BY a.id
+       GROUP BY a.id, s.nome
        ORDER BY a.data DESC, a.id DESC`,
       [req.utenteId]
     );

@@ -534,6 +534,18 @@ textarea:focus {
   font-size: 0.7rem;
 }
 
+/* Nome della scheda nell'elenco allenamenti: informativo, non un avviso — tono
+   neutro (bordo/testo secondario) invece del colore primario di .badge-nuovo. */
+.badge-scheda {
+  align-self: flex-start;
+  background: var(--colore-pannello);
+  border: 1px solid var(--colore-bordo);
+  color: var(--colore-testo-secondario);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+}
+
 /* --- Blocco esercizio + serie multiple (form allenamento) --- */
 
 .blocco-esercizio {

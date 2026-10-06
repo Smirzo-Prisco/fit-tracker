@@ -449,8 +449,7 @@ export default function NuovoAllenamento() {
                 <RigaEsercizio
                   key={es.id}
                   esercizio={es}
-                  punteggioReale={punteggioReale([es])}
-                  punteggioProiettato={punteggioProiettato([es])}
+                  punteggioCorrente={punteggioReale([es])}
                   onCambiaCampo={(iSerie, campo, valore) => cambiaCampoSerie(i, iSerie, campo, valore)}
                   onBlurCampo={(iSerie) => blurCampoSerie(i, iSerie)}
                   onAggiungiSerie={() => aggiungiSerie(i)}
