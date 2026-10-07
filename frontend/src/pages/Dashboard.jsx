@@ -378,14 +378,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="azioni-rapide">
-        <Link to="/misurazioni" className="btn btn--primario">
-          + Nuova misurazione
-        </Link>
-        <Link to="/allenamenti/nuovo" className="btn btn--secondario">
-          + Nuovo allenamento
-        </Link>
-      </div>
     </div>
   );
 }

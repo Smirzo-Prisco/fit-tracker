@@ -244,12 +244,6 @@ a {
   font-size: 0.85rem;
 }
 
-.azioni-rapide {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .carico-meta {
   display: flex;
   flex-wrap: wrap;
@@ -454,6 +448,13 @@ textarea:focus {
   flex: 1;
 }
 
+.lista-allenamenti__data-riga {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* --- Righe esercizio (form allenamento) --- */
 
 .lista-righe-esercizio {
@@ -537,7 +538,6 @@ textarea:focus {
 /* Nome della scheda nell'elenco allenamenti: informativo, non un avviso — tono
    neutro (bordo/testo secondario) invece del colore primario di .badge-nuovo. */
 .badge-scheda {
-  align-self: flex-start;
   background: var(--colore-pannello);
   border: 1px solid var(--colore-bordo);
   color: var(--colore-testo-secondario);
