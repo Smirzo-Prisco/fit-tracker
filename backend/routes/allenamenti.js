@@ -353,6 +353,16 @@ router.post(
     if (!allenamentoRows[0]) {
       return res.status(404).json({ error: 'Allenamento non trovato' });
     }
+    // L'esercizio deve appartenere a chi sta scrivendo — altrimenti si
+    // potrebbe agganciare al proprio allenamento l'id di un esercizio
+    // di un altro utente (il catalogo non è più condiviso, vedi esercizi.js).
+    const [esercizioRows] = await pool.query('SELECT nome, immagine_url FROM esercizi WHERE id = ? AND utente_id = ?', [
+      req.body.esercizio_id,
+      req.utenteId,
+    ]);
+    if (!esercizioRows[0]) {
+      return res.status(404).json({ error: 'Esercizio non trovato' });
+    }
     const [[{ conteggio }]] = await pool.query(
       'SELECT COUNT(*) AS conteggio FROM allenamento_esercizi WHERE allenamento_id = ?',
       [req.params.id]
@@ -361,9 +371,6 @@ router.post(
       'INSERT INTO allenamento_esercizi (allenamento_id, esercizio_id, ordine) VALUES (?, ?, ?)',
       [req.params.id, req.body.esercizio_id, conteggio]
     );
-    const [esercizioRows] = await pool.query('SELECT nome, immagine_url FROM esercizi WHERE id = ?', [
-      req.body.esercizio_id,
-    ]);
     res.status(201).json({
       id: result.insertId,
       esercizio_id: req.body.esercizio_id,

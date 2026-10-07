@@ -8,11 +8,16 @@ export default function Login() {
   const [setupSecret, setSetupSecret] = useState('');
   const [errore, setErrore] = useState('');
   const [inCorso, setInCorso] = useState(false);
+  // Mostra il form di setup di default solo se non esiste ancora nessuno —
+  // altrimenti è un'azione secondaria dietro un link ("Aggiungi un nuovo
+  // utente"), raggiungibile in ogni momento con lo stesso identico flusso.
+  const [mostraSetup, setMostraSetup] = useState(false);
 
   if (loading) return <div className="loading-schermo">Caricamento…</div>;
   if (utente) return <Navigate to="/" replace />;
 
-  const necessitaSetup = status && (!status.hasUser || !status.hasCredentials);
+  const nessunoConfigurato = status && !status.hasUser;
+  const mostraFormSetup = nessunoConfigurato || mostraSetup;
 
   async function gestisciSetup(e) {
     e.preventDefault();
@@ -44,10 +49,12 @@ export default function Login() {
       <div className="pagina-login__card">
         <h1>Fit Tracker</h1>
 
-        {necessitaSetup ? (
+        {mostraFormSetup ? (
           <form onSubmit={gestisciSetup} className="form">
             <p className="testo-secondario">
-              Prima configurazione: crea il tuo profilo e registra l'impronta/Face ID di questo dispositivo.
+              {nessunoConfigurato
+                ? "Prima configurazione: crea il tuo profilo e registra l'impronta/Face ID di questo dispositivo."
+                : "Nuovo utente: crea il profilo e registra l'impronta/Face ID di questo dispositivo — i dati restano separati dagli altri utenti già configurati."}
             </p>
             <label>
               Il tuo nome
@@ -65,12 +72,20 @@ export default function Login() {
             <button type="submit" className="btn btn--primario" disabled={inCorso}>
               {inCorso ? 'Registrazione…' : 'Registra la mia impronta'}
             </button>
+            {!nessunoConfigurato && (
+              <button type="button" className="btn btn--testo" onClick={() => setMostraSetup(false)}>
+                Annulla, torna al login
+              </button>
+            )}
           </form>
         ) : (
           <div className="form">
             <p className="testo-secondario">Accedi con l'impronta o il Face ID di questo dispositivo.</p>
             <button className="btn btn--primario" onClick={gestisciLogin} disabled={inCorso}>
               {inCorso ? 'Verifica…' : 'Accedi'}
+            </button>
+            <button type="button" className="btn btn--testo" onClick={() => setMostraSetup(true)}>
+              Aggiungi un nuovo utente
             </button>
           </div>
         )}

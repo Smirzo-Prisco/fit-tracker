@@ -36,11 +36,17 @@ CREATE TABLE IF NOT EXISTS misurazioni (
   INDEX idx_misurazioni_utente_data (utente_id, data)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Catalogo esercizi: separato per utente (non condiviso) — due persone
+-- possono avere entrambe un esercizio chiamato "Panca piana", da qui
+-- l'unicita' del nome su (utente_id, nome) invece che sulla sola colonna.
 CREATE TABLE IF NOT EXISTS esercizi (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  nome VARCHAR(150) NOT NULL UNIQUE,
+  utente_id INT NOT NULL,
+  nome VARCHAR(150) NOT NULL,
   immagine_url VARCHAR(255),
-  creato_il DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  creato_il DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (utente_id) REFERENCES utente(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_esercizi_utente_nome (utente_id, nome)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Un esercizio allena più gruppi muscolari con coinvolgimento diverso (es. Panca piana:

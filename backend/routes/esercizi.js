@@ -81,11 +81,18 @@ router.get(
       `SELECT e.*, COUNT(ae.id) AS volte_usato
        FROM esercizi e
        LEFT JOIN allenamento_esercizi ae ON ae.esercizio_id = e.id
+       WHERE e.utente_id = ?
        GROUP BY e.id
-       ORDER BY e.nome ASC`
+       ORDER BY e.nome ASC`,
+      [req.utenteId]
     );
     const [gruppi] = await pool.query(
-      'SELECT esercizio_id, gruppo_muscolare, percentuale FROM esercizio_gruppi_muscolari ORDER BY percentuale DESC'
+      `SELECT egm.esercizio_id, egm.gruppo_muscolare, egm.percentuale
+       FROM esercizio_gruppi_muscolari egm
+       JOIN esercizi e ON e.id = egm.esercizio_id
+       WHERE e.utente_id = ?
+       ORDER BY egm.percentuale DESC`,
+      [req.utenteId]
     );
     const gruppiPerEsercizio = new Map();
     for (const g of gruppi) {
@@ -110,10 +117,10 @@ router.post(
     const connessione = await pool.getConnection();
     try {
       await connessione.beginTransaction();
-      const [result] = await connessione.query('INSERT INTO esercizi (nome, immagine_url) VALUES (?, ?)', [
-        nome.trim(),
-        immagine_url || null,
-      ]);
+      const [result] = await connessione.query(
+        'INSERT INTO esercizi (utente_id, nome, immagine_url) VALUES (?, ?, ?)',
+        [req.utenteId, nome.trim(), immagine_url || null]
+      );
       await salvaGruppiMuscolari(connessione, result.insertId, gruppi);
       await connessione.commit();
       res.status(201).json({ id: result.insertId });
@@ -140,11 +147,14 @@ router.put(
     const connessione = await pool.getConnection();
     try {
       await connessione.beginTransaction();
-      await connessione.query('UPDATE esercizi SET nome = ?, immagine_url = ? WHERE id = ?', [
-        nome.trim(),
-        immagine_url || null,
-        req.params.id,
-      ]);
+      const [result] = await connessione.query(
+        'UPDATE esercizi SET nome = ?, immagine_url = ? WHERE id = ? AND utente_id = ?',
+        [nome.trim(), immagine_url || null, req.params.id, req.utenteId]
+      );
+      if (result.affectedRows === 0) {
+        await connessione.rollback();
+        return res.status(404).json({ error: 'Esercizio non trovato' });
+      }
       await salvaGruppiMuscolari(connessione, req.params.id, gruppi);
       await connessione.commit();
       res.json({ ok: true });
@@ -164,7 +174,7 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     try {
-      await pool.query('DELETE FROM esercizi WHERE id = ?', [req.params.id]);
+      await pool.query('DELETE FROM esercizi WHERE id = ? AND utente_id = ?', [req.params.id, req.utenteId]);
       res.json({ ok: true });
     } catch (err) {
       if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {

@@ -27,9 +27,18 @@ function issueSessionCookie(res, utenteId) {
   });
 }
 
-async function getUtenteUnico() {
-  const [rows] = await pool.query('SELECT * FROM utente LIMIT 1');
-  return rows[0] || null;
+// true se esiste almeno un utente con almeno una passkey — usato solo dal
+// frontend per decidere se mostrare "Accedi" come azione primaria (vedi
+// GET /status). Non implica più "l'unico utente": con più persone configurate
+// questa è solo una domanda sì/no, il login vero risale all'utente dalla
+// credenziale usata (vedi /login-verify).
+async function esisteAlmenoUnUtenteConfigurato() {
+  const [rows] = await pool.query(
+    `SELECT 1 FROM utente u
+     WHERE EXISTS (SELECT 1 FROM credenziali_webauthn c WHERE c.utente_id = u.id)
+     LIMIT 1`
+  );
+  return rows.length > 0;
 }
 
 async function getCredenzialiUtente(utenteId) {
@@ -61,37 +70,29 @@ async function salvaCredenziale(utenteId, registrationInfo, transports, nomeDisp
   );
 }
 
-// Stato generale: esiste già l'utente unico e almeno una passkey?
+// Stato generale: esiste almeno un utente configurato? (usato solo per la UI
+// di Login, vedi commento sopra esisteAlmenoUnUtenteConfigurato)
 router.get('/status', async (req, res) => {
-  const utente = await getUtenteUnico();
-  if (!utente) {
-    return res.json({ hasUser: false, hasCredentials: false });
-  }
-  const credenziali = await getCredenzialiUtente(utente.id);
-  res.json({ hasUser: true, hasCredentials: credenziali.length > 0 });
+  const configurato = await esisteAlmenoUnUtenteConfigurato();
+  res.json({ hasUser: configurato, hasCredentials: configurato });
 });
 
-// --- Enrollment iniziale (nessun utente/passkey esistente ancora) ---
+// --- Enrollment di un nuovo utente (protetto dal setup secret, ripetibile:
+// non è più un'operazione "una volta sola nella vita dell'app" — chiunque
+// conosca il secret può predisporre un nuovo utente, con lo stesso identico
+// flusso del primo) ---
 
 router.post('/setup/register-options', async (req, res) => {
   const { setupSecret, nome } = req.body;
   if (!setupSecret || setupSecret !== process.env.SETUP_SECRET) {
     return res.status(403).json({ error: 'Setup secret non valido' });
   }
-  const utenteEsistente = await getUtenteUnico();
-  let utenteId;
-  if (utenteEsistente) {
-    const credenzialiEsistenti = await getCredenzialiUtente(utenteEsistente.id);
-    if (credenzialiEsistenti.length > 0) {
-      return res.status(409).json({ error: 'Utente già configurato, usa /register-options autenticato' });
-    }
-    // Utente creato da un tentativo di setup precedente mai completato: lo riusiamo.
-    utenteId = utenteEsistente.id;
-    await pool.query('UPDATE utente SET nome = ? WHERE id = ?', [nome || 'Utente', utenteId]);
-  } else {
-    const [result] = await pool.query('INSERT INTO utente (nome) VALUES (?)', [nome || 'Utente']);
-    utenteId = result.insertId;
-  }
+  // Sempre un nuovo utente: niente più riuso di una riga "incompleta" di un
+  // tentativo precedente — con più persone quella logica diventerebbe
+  // ambigua (di chi è la riga a metà?). Un tentativo di setup abbandonato a
+  // metà lascia al più una riga utente orfana senza passkey, innocua.
+  const [result] = await pool.query('INSERT INTO utente (nome) VALUES (?)', [nome || 'Utente']);
+  const utenteId = result.insertId;
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
@@ -106,18 +107,18 @@ router.post('/setup/register-options', async (req, res) => {
     },
   });
 
-  challengeStore.set({ challenge: options.challenge, utenteId });
-  res.json(options);
+  const attemptId = challengeStore.create({ challenge: options.challenge, utenteId });
+  res.json({ ...options, attemptId });
 });
 
 router.post('/setup/register-verify', async (req, res) => {
-  const { setupSecret, credential, nomeDispositivo } = req.body;
+  const { setupSecret, credential, nomeDispositivo, attemptId } = req.body;
   if (!setupSecret || setupSecret !== process.env.SETUP_SECRET) {
     return res.status(403).json({ error: 'Setup secret non valido' });
   }
-  const pending = challengeStore.get();
+  const pending = challengeStore.get(attemptId);
   if (!pending) {
-    return res.status(400).json({ error: 'Nessun enrollment in corso' });
+    return res.status(400).json({ error: 'Nessun enrollment in corso (o scaduto, riprova)' });
   }
 
   let verification;
@@ -131,7 +132,7 @@ router.post('/setup/register-verify', async (req, res) => {
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
-  challengeStore.clear();
+  challengeStore.clear(attemptId);
 
   if (!verification.verified || !verification.registrationInfo) {
     return res.status(400).json({ error: 'Verifica registrazione fallita' });
@@ -169,13 +170,13 @@ router.post('/register-options', requireAuth, async (req, res) => {
     },
   });
 
-  challengeStore.set({ challenge: options.challenge, utenteId: req.utenteId });
-  res.json(options);
+  const attemptId = challengeStore.create({ challenge: options.challenge, utenteId: req.utenteId });
+  res.json({ ...options, attemptId });
 });
 
 router.post('/register-verify', requireAuth, async (req, res) => {
-  const { credential, nomeDispositivo } = req.body;
-  const pending = challengeStore.get();
+  const { credential, nomeDispositivo, attemptId } = req.body;
+  const pending = challengeStore.get(attemptId);
   if (!pending || pending.utenteId !== req.utenteId) {
     return res.status(400).json({ error: 'Nessun enrollment in corso per questo utente' });
   }
@@ -191,7 +192,7 @@ router.post('/register-verify', requireAuth, async (req, res) => {
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
-  challengeStore.clear();
+  challengeStore.clear(attemptId);
 
   if (!verification.verified || !verification.registrationInfo) {
     return res.status(400).json({ error: 'Verifica registrazione fallita' });
@@ -207,42 +208,35 @@ router.post('/register-verify', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// --- Login con passkey esistente ---
+// --- Login con passkey esistente (discoverable: non sappiamo ancora "di chi"
+// è finché il dispositivo non la restituisce in verify) ---
 
 router.post('/login-options', async (req, res) => {
-  const utente = await getUtenteUnico();
-  if (!utente) {
-    return res.status(404).json({ error: 'Nessun utente configurato' });
-  }
-  const credenziali = await getCredenzialiUtente(utente.id);
-  if (credenziali.length === 0) {
-    return res.status(404).json({ error: 'Nessuna passkey registrata' });
-  }
-
+  // Nessun allowCredentials: il dispositivo mostra tutte le passkey
+  // registrate per questo sito (residentKey:'preferred' in fase di
+  // registrazione le rende scopribili), la persona sceglie la propria —
+  // è così che login-verify risale a quale utente è senza doverlo chiedere.
   const options = await generateAuthenticationOptions({
     rpID: RP_ID,
     userVerification: 'required',
-    allowCredentials: credenziali.map((c) => ({
-      id: c.credential_id,
-      transports: c.transports ? c.transports.split(',') : undefined,
-    })),
   });
 
-  challengeStore.set({ challenge: options.challenge, utenteId: utente.id });
-  res.json(options);
+  const attemptId = challengeStore.create({ challenge: options.challenge });
+  res.json({ ...options, attemptId });
 });
 
 router.post('/login-verify', async (req, res) => {
-  const { credential } = req.body;
-  const pending = challengeStore.get();
+  const { credential, attemptId } = req.body;
+  const pending = challengeStore.get(attemptId);
   if (!pending) {
-    return res.status(400).json({ error: 'Nessun login in corso' });
+    return res.status(400).json({ error: 'Nessun login in corso (o scaduto, riprova)' });
   }
 
-  const [rows] = await pool.query(
-    'SELECT * FROM credenziali_webauthn WHERE credential_id = ? AND utente_id = ?',
-    [credential.id, pending.utenteId]
-  );
+  // credential_id è univoco globalmente (schema.sql) — risale da solo
+  // all'utente proprietario, senza doverlo già conoscere.
+  const [rows] = await pool.query('SELECT * FROM credenziali_webauthn WHERE credential_id = ?', [
+    credential.id,
+  ]);
   const credenziale = rows[0];
   if (!credenziale) {
     return res.status(400).json({ error: 'Passkey sconosciuta' });
@@ -265,7 +259,7 @@ router.post('/login-verify', async (req, res) => {
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
-  challengeStore.clear();
+  challengeStore.clear(attemptId);
 
   if (!verification.verified) {
     return res.status(400).json({ error: 'Verifica login fallita' });
@@ -276,7 +270,7 @@ router.post('/login-verify', async (req, res) => {
     credenziale.id,
   ]);
 
-  issueSessionCookie(res, pending.utenteId);
+  issueSessionCookie(res, credenziale.utente_id);
   res.json({ ok: true });
 });
 

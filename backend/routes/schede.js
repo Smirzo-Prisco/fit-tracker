@@ -45,15 +45,24 @@ router.get(
   })
 );
 
-async function salvaEsercizi(connection, schedaId, esercizi) {
-  if (!Array.isArray(esercizi)) return;
+// L'esercizio deve appartenere a chi sta scrivendo la scheda — il catalogo
+// non è più condiviso (vedi esercizi.js), altrimenti si potrebbe agganciare
+// alla propria scheda l'id di un esercizio di un altro utente.
+async function salvaEsercizi(connection, schedaId, esercizi, utenteId) {
+  if (!Array.isArray(esercizi)) return null;
   for (let i = 0; i < esercizi.length; i += 1) {
+    const [esercizioRows] = await connection.query('SELECT id FROM esercizi WHERE id = ? AND utente_id = ?', [
+      esercizi[i].esercizio_id,
+      utenteId,
+    ]);
+    if (!esercizioRows[0]) return 'Esercizio non trovato';
     await connection.query('INSERT INTO scheda_esercizi (scheda_id, esercizio_id, ordine) VALUES (?, ?, ?)', [
       schedaId,
       esercizi[i].esercizio_id,
       i,
     ]);
   }
+  return null;
 }
 
 router.post(
@@ -70,7 +79,11 @@ router.post(
         req.utenteId,
         nome.trim(),
       ]);
-      await salvaEsercizi(connection, result.insertId, esercizi);
+      const erroreEsercizi = await salvaEsercizi(connection, result.insertId, esercizi, req.utenteId);
+      if (erroreEsercizi) {
+        await connection.rollback();
+        return res.status(400).json({ error: erroreEsercizi });
+      }
       await connection.commit();
       res.status(201).json({ id: result.insertId });
     } catch (err) {
@@ -98,7 +111,11 @@ router.put(
         return res.status(404).json({ error: 'Scheda non trovata' });
       }
       await connection.query('DELETE FROM scheda_esercizi WHERE scheda_id = ?', [req.params.id]);
-      await salvaEsercizi(connection, req.params.id, esercizi);
+      const erroreEsercizi = await salvaEsercizi(connection, req.params.id, esercizi, req.utenteId);
+      if (erroreEsercizi) {
+        await connection.rollback();
+        return res.status(400).json({ error: erroreEsercizi });
+      }
       await connection.commit();
       res.json({ ok: true });
     } catch (err) {
