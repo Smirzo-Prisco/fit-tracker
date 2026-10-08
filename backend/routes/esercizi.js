@@ -229,8 +229,15 @@ router.get(
     );
     if (!riferimento[0]) return res.json({ data: null, serie: [], riferimento_1rm: null });
 
+    // Solo serie complete: una riga con un campo svuotato a metà (es. un valore
+    // corretto e poi cancellato senza eliminare l'intera serie) non è un vero
+    // riferimento da riproporre — contarla gonfierebbe il numero di segnaposto
+    // mostrati in NuovoAllenamento oltre le serie realmente fatte l'ultima volta.
     const [serie] = await pool.query(
-      'SELECT ripetizioni, peso_kg, rpe FROM serie WHERE allenamento_esercizio_id = ? ORDER BY numero_serie ASC',
+      `SELECT ripetizioni, peso_kg, rpe FROM serie
+       WHERE allenamento_esercizio_id = ?
+         AND ripetizioni IS NOT NULL AND peso_kg IS NOT NULL AND rpe IS NOT NULL
+       ORDER BY numero_serie ASC`,
       [riferimento[0].id]
     );
     const riferimenti1Rm = await caricaRiferimenti1Rm(req.utenteId, [Number(req.params.id)]);
