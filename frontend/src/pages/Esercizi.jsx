@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
 import { GRUPPI_MUSCOLARI, COLORE_GRUPPO } from '../lib/gruppiMuscolari';
 import { trovaEsercizioSimile } from '../lib/similitudineEsercizi';
+import { punteggioSerie } from '../lib/punteggioCarico';
 
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
@@ -56,13 +57,14 @@ export default function Esercizi() {
     setFoglio(esercizio);
 
     api.get(`/esercizi/${esercizio.id}/progressione`).then((dati) => {
-      // Punteggio di carico per sessione: somma di ripetizioni × kg × (RPE/10) di tutte
-      // le serie di quella data (solo quelle con RPE registrato — dati storici pre-RPE
-      // non contribuiscono, non vanno trattati come punteggio 0).
+      // Punteggio di carico per sessione: somma del punteggio di tutte le serie di quella
+      // data (vedi punteggioSerie in lib/punteggioCarico per la formula) — solo quelle con
+      // RPE registrato, i dati storici pre-RPE non contribuiscono, non vanno trattati come
+      // punteggio 0.
       const perData = new Map();
       for (const d of dati) {
         if (d.ripetizioni == null || d.peso_kg == null || d.rpe == null) continue;
-        const punteggio = Number(d.ripetizioni) * Number(d.peso_kg) * (Number(d.rpe) / 10);
+        const punteggio = punteggioSerie(Number(d.ripetizioni), Number(d.peso_kg), Number(d.rpe));
         perData.set(d.data, (perData.get(d.data) || 0) + punteggio);
       }
       setProgressioneCarico(
@@ -421,7 +423,7 @@ export default function Esercizi() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="testo-secondario">
-                    Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × kg × RPE/10).
+                    Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × 1RM stimato × RPE/10).
                   </p>
                 )}
               </>

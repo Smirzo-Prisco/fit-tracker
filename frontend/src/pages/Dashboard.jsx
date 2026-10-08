@@ -21,7 +21,7 @@ function inizioSettimanaIso() {
 }
 
 // Soglie per classificare l'andamento settimana-su-settimana del punteggio di carico
-// (Serie × Ripetizioni × Kg × RPE/10). Sotto il 5% di variazione si considera "stabile":
+// (Ripetizioni × 1RM stimato × RPE/10). Sotto il 5% di variazione si considera "stabile":
 // lì la differenza la fa l'RPE medio (stesso lavoro percepito come più leggero = si è
 // diventati più forti, anche se il punteggio non è salito).
 const SOGLIA_CRESCITA = 5;
@@ -270,7 +270,8 @@ export default function Dashboard() {
           </select>
         </div>
         <p className="testo-secondario">
-          Punteggio di carico = Serie × Ripetizioni × Kg × (RPE/10), sommato su tutte le serie della settimana.
+          Punteggio di carico = Ripetizioni × 1RM stimato × (RPE/10), sommato su tutte le serie della settimana.
+          1RM stimato = Kg × (1 + Ripetizioni/30).
         </p>
 
         {caricamentoAndamento ? (

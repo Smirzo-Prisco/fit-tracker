@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
+import { punteggioSerie } from '../lib/punteggioCarico';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
-// Punteggio di carico (Training Load Score): ripetizioni × kg × (RPE/10), sommato su ogni
-// serie che ha tutti e tre i valori REALMENTE digitati — ricalcolato lato client per un
-// riscontro immediato mentre si compila. Conta solo ciò che hai già scritto: su un
-// allenamento pianificato e non ancora svolto resta null (vedi punteggioProiettato sotto
-// per un totale sempre visibile, basato anche sui placeholder non ancora superati).
+// Punteggio di carico totale di un allenamento: sommato su ogni serie che ha tutti e tre i
+// valori REALMENTE digitati (vedi punteggioSerie in lib/punteggioCarico per la formula) —
+// ricalcolato lato client per un riscontro immediato mentre si compila. Conta solo ciò che
+// hai già scritto: su un allenamento pianificato e non ancora svolto resta null (vedi
+// punteggioProiettato sotto per un totale sempre visibile, basato anche sui placeholder non
+// ancora superati).
 function punteggioReale(esercizi) {
   let totale = 0;
   let almenoUna = false;
@@ -16,7 +18,7 @@ function punteggioReale(esercizi) {
     for (const s of e.serie) {
       if (s.ripetizioni === '' || s.peso_kg === '' || s.rpe === '') continue;
       almenoUna = true;
-      totale += Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+      totale += punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe));
     }
   }
   return almenoUna ? Math.round(totale) : null;
@@ -37,7 +39,7 @@ function punteggioProiettato(esercizi) {
       const rpe = s.rpe !== '' ? s.rpe : s.riferimento?.rpe;
       if (rip == null || kg == null || rpe == null) continue;
       almenoUna = true;
-      totale += Number(rip) * Number(kg) * (Number(rpe) / 10);
+      totale += punteggioSerie(Number(rip), Number(kg), Number(rpe));
     }
   }
   return almenoUna ? Math.round(totale) : null;
@@ -49,7 +51,7 @@ function punteggioSerieList(serieList) {
   let totale = 0;
   for (const s of serieList) {
     if (s.ripetizioni == null || s.peso_kg == null || s.rpe == null) continue;
-    totale += Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+    totale += punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe));
   }
   return totale;
 }

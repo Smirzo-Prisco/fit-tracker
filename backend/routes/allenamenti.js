@@ -11,13 +11,21 @@ router.use(requireAuth);
 // GET /andamento, non per scrivere dati.
 const GRUPPI_MUSCOLARI = ['Petto', 'Dorsali', 'Spalle', 'Bicipiti', 'Tricipiti', 'Gambe', 'Addominali'];
 
-// Punteggio di carico (Training Load Score) di una serie: ripetizioni × peso_kg × (RPE/10).
+// Punteggio di carico (Training Load Score) di una serie: ripetizioni × 1RM stimato × (RPE/10).
+// L'1RM stimato (formula di Epley) è peso_kg × (1 + ripetizioni/30), usato al posto del kg
+// grezzo per pesare la serie in base alla forza che esprime invece che al solo peso sollevato.
 // Richiede tutti e tre i valori — una serie senza RPE (es. dati storici pre-funzionalità)
 // non entra nel punteggio invece di essere trattata come 0, per non falsare l'andamento.
 function punteggioSerie(s) {
   if (s.ripetizioni == null || s.peso_kg == null || s.rpe == null) return null;
-  return Number(s.ripetizioni) * Number(s.peso_kg) * (Number(s.rpe) / 10);
+  const ripetizioni = Number(s.ripetizioni);
+  const unRepMax = Number(s.peso_kg) * (1 + ripetizioni / 30);
+  return ripetizioni * unRepMax * (Number(s.rpe) / 10);
 }
+
+// Stessa formula ripetizioni × 1RM stimato × (RPE/10) in SQL, per le query aggregate sotto
+// che sommano su molte serie direttamente nel database invece che riga per riga in JS.
+const SQL_PUNTEGGIO_SERIE = 's.ripetizioni * (s.peso_kg * (1 + s.ripetizioni / 30)) * (s.rpe / 10)';
 
 // L'RPE è sulla scala 1-10 (Rate of Perceived Exertion): un valore fuori scala non va mai
 // salvato, altrimenti il punteggio di carico (che divide RPE/10) risulta silenziosamente
@@ -63,7 +71,7 @@ router.get(
     // mano, così ogni allenamento vede solo ciò che è realmente accaduto prima di lui.
     const [aeRows] = await pool.query(
       `SELECT ae.allenamento_id, ae.esercizio_id, a.data,
-              SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)) AS reale_esercizio
+              SUM(${SQL_PUNTEGGIO_SERIE}) AS reale_esercizio
        FROM allenamento_esercizi ae
        JOIN allenamenti a ON a.id = ae.allenamento_id
        LEFT JOIN serie s ON s.allenamento_esercizio_id = ae.id
@@ -134,7 +142,7 @@ router.get(
     const [rows] = await pool.query(
       `SELECT
          DATE_SUB(a.data, INTERVAL WEEKDAY(a.data) DAY) AS settimana_inizio,
-         SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)${pesoGruppo}) AS punteggio_totale,
+         SUM(${SQL_PUNTEGGIO_SERIE}${pesoGruppo}) AS punteggio_totale,
          AVG(s.rpe) AS rpe_medio,
          COUNT(s.id) AS numero_set
        FROM serie s
@@ -174,7 +182,7 @@ router.get(
       if (rows[0].settimana_inizio === inizio) {
         const [storicoGiorni] = await pool.query(
           `SELECT WEEKDAY(a.data) AS giorno_settimana,
-                  SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)${pesoGruppo}) AS punteggio
+                  SUM(${SQL_PUNTEGGIO_SERIE}${pesoGruppo}) AS punteggio
            FROM serie s
            JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
            JOIN allenamenti a ON a.id = ae.allenamento_id
