@@ -243,20 +243,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {datiPeso.length > 1 && (
-        <div className="pannello">
-          <h2>Andamento peso</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={datiPeso}>
-              <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={36} />
-              <Tooltip />
-              <Line type="monotone" dataKey="peso" stroke="#1e6feb" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
       <div className="pannello">
         <div className="pannello__header">
           <h2>Monitoraggio carico settimanale</h2>
@@ -379,6 +365,19 @@ export default function Dashboard() {
         )}
       </div>
 
+      {datiPeso.length > 1 && (
+        <div className="pannello">
+          <h2>Andamento peso</h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={datiPeso}>
+              <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={36} />
+              <Tooltip />
+              <Line type="monotone" dataKey="peso" stroke="#1e6feb" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
