@@ -7,18 +7,23 @@ import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
 // Punteggio di carico totale di un allenamento: sommato su ogni serie che ha tutti e tre i
 // valori REALMENTE digitati (vedi punteggioSerie in lib/punteggioCarico per la formula) —
-// ricalcolato lato client per un riscontro immediato mentre si compila. Conta solo ciò che
-// hai già scritto: su un allenamento pianificato e non ancora svolto resta null (vedi
-// punteggioProiettato sotto per un totale sempre visibile, basato anche sui placeholder non
-// ancora superati).
+// ricalcolato lato client per un riscontro immediato mentre si compila. Ogni esercizio porta
+// con sé il proprio riferimento1Rm (da GET /esercizi/:id/ultima-sessione, vedi caricaStorico):
+// finché non è ancora arrivato, o se l'esercizio non ha mai avuto una serie valida prima
+// d'ora, le sue serie non contribuiscono al totale (nessun denominatore su cui pesarle).
+// Conta solo ciò che hai già scritto: su un allenamento pianificato e non ancora svolto
+// resta null (vedi punteggioProiettato sotto per un totale sempre visibile, basato anche sui
+// placeholder non ancora superati).
 function punteggioReale(esercizi) {
   let totale = 0;
   let almenoUna = false;
   for (const e of esercizi) {
     for (const s of e.serie) {
       if (s.ripetizioni === '' || s.peso_kg === '' || s.rpe === '') continue;
+      const punteggio = punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe), e.riferimento1Rm);
+      if (punteggio == null) continue;
       almenoUna = true;
-      totale += punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe));
+      totale += punteggio;
     }
   }
   return almenoUna ? Math.round(totale) : null;
@@ -38,20 +43,23 @@ function punteggioProiettato(esercizi) {
       const kg = s.peso_kg !== '' ? s.peso_kg : s.riferimento?.peso_kg;
       const rpe = s.rpe !== '' ? s.rpe : s.riferimento?.rpe;
       if (rip == null || kg == null || rpe == null) continue;
+      const punteggio = punteggioSerie(Number(rip), Number(kg), Number(rpe), e.riferimento1Rm);
+      if (punteggio == null) continue;
       almenoUna = true;
-      totale += punteggioSerie(Number(rip), Number(kg), Number(rpe));
+      totale += punteggio;
     }
   }
   return almenoUna ? Math.round(totale) : null;
 }
 
-// Stessa formula, ma su un elenco grezzo di serie {ripetizioni, peso_kg, rpe} come
-// arrivano da GET /esercizi/:id/ultima-sessione (usato per il punteggio di riferimento).
-function punteggioSerieList(serieList) {
+// Stessa formula, ma su un elenco grezzo di serie {ripetizioni, peso_kg, rpe} come arrivano
+// da GET /esercizi/:id/ultima-sessione (usato per il punteggio di riferimento da battere).
+function punteggioSerieList(serieList, riferimento1Rm) {
   let totale = 0;
   for (const s of serieList) {
     if (s.ripetizioni == null || s.peso_kg == null || s.rpe == null) continue;
-    totale += punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe));
+    const punteggio = punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe), riferimento1Rm);
+    if (punteggio != null) totale += punteggio;
   }
   return totale;
 }
@@ -63,7 +71,7 @@ async function caricaStorico(esercizioId, allenamentoIdCorrente) {
   try {
     return await api.get(`/esercizi/${esercizioId}/ultima-sessione?escludi=${allenamentoIdCorrente}`);
   } catch {
-    return { data: null, serie: [] };
+    return { data: null, serie: [], riferimento_1rm: null };
   }
 }
 
@@ -163,7 +171,8 @@ export default function NuovoAllenamento() {
                   serie: conRiferimenti(riga.serie, storico.serie),
                   haStorico: storico.serie.length > 0,
                   storicoCaricato: true,
-                  storicoPunteggio: punteggioSerieList(storico.serie),
+                  riferimento1Rm: storico.riferimento_1rm,
+                  storicoPunteggio: punteggioSerieList(storico.serie, storico.riferimento_1rm),
                 }
               : riga
           )
@@ -228,7 +237,8 @@ export default function NuovoAllenamento() {
                 serie: serieDaStorico(storico.serie),
                 haStorico: storico.serie.length > 0,
                 storicoCaricato: true,
-                storicoPunteggio: punteggioSerieList(storico.serie),
+                riferimento1Rm: storico.riferimento_1rm,
+                storicoPunteggio: punteggioSerieList(storico.serie, storico.riferimento_1rm),
               }
             : e
         )

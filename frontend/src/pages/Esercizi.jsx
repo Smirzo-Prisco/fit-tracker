@@ -56,15 +56,17 @@ export default function Esercizi() {
     setProgressioneCarico([]);
     setFoglio(esercizio);
 
-    api.get(`/esercizi/${esercizio.id}/progressione`).then((dati) => {
+    api.get(`/esercizi/${esercizio.id}/progressione`).then(({ riferimento_1rm, serie }) => {
       // Punteggio di carico per sessione: somma del punteggio di tutte le serie di quella
       // data (vedi punteggioSerie in lib/punteggioCarico per la formula) — solo quelle con
       // RPE registrato, i dati storici pre-RPE non contribuiscono, non vanno trattati come
-      // punteggio 0.
+      // punteggio 0. riferimento_1rm è lo stesso per tutta la progressione (vedi commento
+      // su punteggioSerie): non cambia sessione per sessione.
       const perData = new Map();
-      for (const d of dati) {
+      for (const d of serie) {
         if (d.ripetizioni == null || d.peso_kg == null || d.rpe == null) continue;
-        const punteggio = punteggioSerie(Number(d.ripetizioni), Number(d.peso_kg), Number(d.rpe));
+        const punteggio = punteggioSerie(Number(d.ripetizioni), Number(d.peso_kg), Number(d.rpe), riferimento_1rm);
+        if (punteggio == null) continue;
         perData.set(d.data, (perData.get(d.data) || 0) + punteggio);
       }
       setProgressioneCarico(
@@ -423,7 +425,7 @@ export default function Esercizi() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="testo-secondario">
-                    Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × 1RM stimato × RPE/10).
+                    Servono almeno due sessioni con RPE registrato per questo grafico (ripetizioni × kg/1RM di riferimento × RPE/10).
                   </p>
                 )}
               </>

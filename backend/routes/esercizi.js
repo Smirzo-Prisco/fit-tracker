@@ -5,6 +5,7 @@ const multer = require('multer');
 const pool = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const asyncHandler = require('../middleware/asyncHandler');
+const { caricaRiferimenti1Rm } = require('../lib/punteggioCarico');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -185,7 +186,9 @@ router.delete(
   })
 );
 
-// Progressione peso/ripetizioni nel tempo per un esercizio del catalogo (tutte le serie di ogni sessione)
+// Progressione peso/ripetizioni nel tempo per un esercizio del catalogo (tutte le serie di ogni sessione).
+// Include anche riferimento_1rm (vedi lib/punteggioCarico) perché il grafico di progressione
+// è calcolato lato client: serve lo stesso denominatore usato dal backend per il punteggio.
 router.get(
   '/:id/progressione',
   asyncHandler(async (req, res) => {
@@ -198,7 +201,8 @@ router.get(
        ORDER BY a.data ASC, s.numero_serie ASC`,
       [req.utenteId, req.params.id]
     );
-    res.json(rows);
+    const riferimenti = await caricaRiferimenti1Rm(req.utenteId, [Number(req.params.id)]);
+    res.json({ riferimento_1rm: riferimenti[req.params.id] ?? null, serie: rows });
   })
 );
 
@@ -223,13 +227,14 @@ router.get(
        LIMIT 1`,
       [req.params.id, req.utenteId, escludiAllenamento]
     );
-    if (!riferimento[0]) return res.json({ data: null, serie: [] });
+    if (!riferimento[0]) return res.json({ data: null, serie: [], riferimento_1rm: null });
 
     const [serie] = await pool.query(
       'SELECT ripetizioni, peso_kg, rpe FROM serie WHERE allenamento_esercizio_id = ? ORDER BY numero_serie ASC',
       [riferimento[0].id]
     );
-    res.json({ data: riferimento[0].data, serie });
+    const riferimenti1Rm = await caricaRiferimenti1Rm(req.utenteId, [Number(req.params.id)]);
+    res.json({ data: riferimento[0].data, serie, riferimento_1rm: riferimenti1Rm[req.params.id] ?? null });
   })
 );
 

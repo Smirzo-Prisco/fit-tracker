@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const asyncHandler = require('../middleware/asyncHandler');
+const { punteggioSerie, SQL_PUNTEGGIO_SERIE, sqlJoinRiferimento1Rm, caricaRiferimenti1Rm } = require('../lib/punteggioCarico');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -10,22 +11,6 @@ router.use(requireAuth);
 // costante in routes/esercizi.js — usata qui solo per validare il filtro di
 // GET /andamento, non per scrivere dati.
 const GRUPPI_MUSCOLARI = ['Petto', 'Dorsali', 'Spalle', 'Bicipiti', 'Tricipiti', 'Gambe', 'Addominali'];
-
-// Punteggio di carico (Training Load Score) di una serie: ripetizioni × 1RM stimato × (RPE/10).
-// L'1RM stimato (formula di Epley) è peso_kg × (1 + ripetizioni/30), usato al posto del kg
-// grezzo per pesare la serie in base alla forza che esprime invece che al solo peso sollevato.
-// Richiede tutti e tre i valori — una serie senza RPE (es. dati storici pre-funzionalità)
-// non entra nel punteggio invece di essere trattata come 0, per non falsare l'andamento.
-function punteggioSerie(s) {
-  if (s.ripetizioni == null || s.peso_kg == null || s.rpe == null) return null;
-  const ripetizioni = Number(s.ripetizioni);
-  const unRepMax = Number(s.peso_kg) * (1 + ripetizioni / 30);
-  return ripetizioni * unRepMax * (Number(s.rpe) / 10);
-}
-
-// Stessa formula ripetizioni × 1RM stimato × (RPE/10) in SQL, per le query aggregate sotto
-// che sommano su molte serie direttamente nel database invece che riga per riga in JS.
-const SQL_PUNTEGGIO_SERIE = 's.ripetizioni * (s.peso_kg * (1 + s.ripetizioni / 30)) * (s.rpe / 10)';
 
 // L'RPE è sulla scala 1-10 (Rate of Perceived Exertion): un valore fuori scala non va mai
 // salvato, altrimenti il punteggio di carico (che divide RPE/10) risulta silenziosamente
@@ -41,7 +26,7 @@ function rpeFuoriScala(rpe) {
 // e restituisce l'allenamento_id per comodità (evita un giro extra di query ai chiamanti).
 async function trovaAllenamentoEsercizio(utenteId, allenamentoId, aeId) {
   const [rows] = await pool.query(
-    `SELECT ae.id FROM allenamento_esercizi ae
+    `SELECT ae.id, ae.esercizio_id FROM allenamento_esercizi ae
      JOIN allenamenti a ON a.id = ae.allenamento_id
      WHERE ae.id = ? AND ae.allenamento_id = ? AND a.utente_id = ?`,
     [aeId, allenamentoId, utenteId]
@@ -75,10 +60,11 @@ router.get(
        FROM allenamento_esercizi ae
        JOIN allenamenti a ON a.id = ae.allenamento_id
        LEFT JOIN serie s ON s.allenamento_esercizio_id = ae.id
+       ${sqlJoinRiferimento1Rm('ae.esercizio_id')}
        WHERE a.utente_id = ?
        GROUP BY ae.id, ae.allenamento_id, ae.esercizio_id, a.data
        ORDER BY a.data ASC, a.id ASC`,
-      [req.utenteId]
+      [req.utenteId, req.utenteId]
     );
 
     const ultimoRealeNoto = {}; // esercizio_id -> ultimo punteggio reale noto
@@ -149,13 +135,16 @@ router.get(
        JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
        JOIN allenamenti a ON a.id = ae.allenamento_id
        JOIN esercizi e ON e.id = ae.esercizio_id
+       ${sqlJoinRiferimento1Rm('e.id')}
        ${joinGruppo}
        WHERE a.utente_id = ?
          AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
        GROUP BY settimana_inizio
        ORDER BY settimana_inizio DESC
        LIMIT ?`,
-      gruppoMuscolare ? [gruppoMuscolare, req.utenteId, settimane] : [req.utenteId, settimane]
+      gruppoMuscolare
+        ? [req.utenteId, gruppoMuscolare, req.utenteId, settimane]
+        : [req.utenteId, req.utenteId, settimane]
     );
 
     // Settimane contrassegnate come scarico, per marcare le righe sopra — query separata
@@ -187,12 +176,15 @@ router.get(
            JOIN allenamento_esercizi ae ON ae.id = s.allenamento_esercizio_id
            JOIN allenamenti a ON a.id = ae.allenamento_id
            JOIN esercizi e ON e.id = ae.esercizio_id
+           ${sqlJoinRiferimento1Rm('e.id')}
            ${joinGruppo}
            WHERE a.utente_id = ? AND a.data < ?
              AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
            GROUP BY DATE(a.data), WEEKDAY(a.data)
            ORDER BY DATE(a.data) DESC`,
-          gruppoMuscolare ? [gruppoMuscolare, req.utenteId, inizio] : [req.utenteId, inizio]
+          gruppoMuscolare
+            ? [req.utenteId, gruppoMuscolare, req.utenteId, inizio]
+            : [req.utenteId, req.utenteId, inizio]
         );
         const ultimoPerGiornoSettimana = {};
         for (const r of storicoGiorni) {
@@ -275,8 +267,11 @@ router.get(
         `SELECT * FROM serie WHERE allenamento_esercizio_id IN (?) ORDER BY numero_serie ASC`,
         [esercizi.map((e) => e.id)]
       );
+      const aeIdToEsercizioId = Object.fromEntries(esercizi.map((e) => [e.id, e.esercizio_id]));
+      const riferimenti = await caricaRiferimenti1Rm(req.utenteId, esercizi.map((e) => e.esercizio_id));
       serieMap = serieRows.reduce((acc, s) => {
-        const punteggio = punteggioSerie(s);
+        const riferimento1Rm = riferimenti[aeIdToEsercizioId[s.allenamento_esercizio_id]];
+        const punteggio = punteggioSerie(s, riferimento1Rm);
         if (punteggio != null) punteggioTotale += punteggio;
         (acc[s.allenamento_esercizio_id] ||= []).push({ ...s, punteggio });
         return acc;
@@ -288,16 +283,17 @@ router.get(
     // pianificato ma ancora vuoto non deve mai contare come "precedente" solo
     // perché ha una data più vicina a oggi.
     const [precedenteRows] = await pool.query(
-      `SELECT a2.id, a2.data, SUM(s.ripetizioni * s.peso_kg * (s.rpe / 10)) AS punteggio_totale
+      `SELECT a2.id, a2.data, SUM(${SQL_PUNTEGGIO_SERIE}) AS punteggio_totale
        FROM allenamenti a2
        JOIN allenamento_esercizi ae2 ON ae2.allenamento_id = a2.id
        JOIN serie s ON s.allenamento_esercizio_id = ae2.id
+       ${sqlJoinRiferimento1Rm('ae2.esercizio_id')}
        WHERE a2.utente_id = ? AND a2.id != ?
          AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
        GROUP BY a2.id
        ORDER BY a2.data DESC, a2.id DESC
        LIMIT 1`,
-      [req.utenteId, allenamento.id]
+      [req.utenteId, req.utenteId, allenamento.id]
     );
     const precedente = precedenteRows[0]
       ? { data: precedenteRows[0].data, punteggio_totale: Math.round(Number(precedenteRows[0].punteggio_totale)) }
@@ -419,10 +415,11 @@ router.post(
       'INSERT INTO serie (allenamento_esercizio_id, numero_serie, ripetizioni, peso_kg, rpe) VALUES (?, ?, ?, ?, ?)',
       [req.params.aeId, conteggio + 1, ripetizioni || null, peso_kg || null, rpe || null]
     );
+    const riferimenti = await caricaRiferimenti1Rm(req.utenteId, [ae.esercizio_id]);
     res.status(201).json({
       id: result.insertId,
       numero_serie: conteggio + 1,
-      punteggio: punteggioSerie({ ripetizioni, peso_kg, rpe }),
+      punteggio: punteggioSerie({ ripetizioni, peso_kg, rpe }, riferimenti[ae.esercizio_id]),
     });
   })
 );
@@ -441,7 +438,8 @@ router.put(
       'UPDATE serie SET ripetizioni = ?, peso_kg = ?, rpe = ? WHERE id = ? AND allenamento_esercizio_id = ?',
       [ripetizioni || null, peso_kg || null, rpe || null, req.params.serieId, req.params.aeId]
     );
-    res.json({ ok: true, punteggio: punteggioSerie({ ripetizioni, peso_kg, rpe }) });
+    const riferimenti = await caricaRiferimenti1Rm(req.utenteId, [ae.esercizio_id]);
+    res.json({ ok: true, punteggio: punteggioSerie({ ripetizioni, peso_kg, rpe }, riferimenti[ae.esercizio_id]) });
   })
 );
 
