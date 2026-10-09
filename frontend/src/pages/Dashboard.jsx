@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
-import { formattaData } from '../lib/date';
+import { formattaData, formattaSettimana } from '../lib/date';
 import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
 
 function inizioSettimana() {
@@ -179,7 +179,7 @@ export default function Dashboard() {
     const dati = andamento.map((s, i, arr) => {
       const inProiezione = i === arr.length - 1 && s.punteggio_proiettato != null;
       return {
-        settimana: formattaData(s.settimana_inizio),
+        settimana: formattaSettimana(s.settimana_inizio),
         punteggio: inProiezione ? null : s.punteggio_totale,
         punteggioProiezione: inProiezione ? s.punteggio_proiettato : null,
       };
