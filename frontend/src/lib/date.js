@@ -5,20 +5,16 @@ export function formattaData(iso) {
   return `${giorno}/${mese}/${anno}`;
 }
 
-// Formatta l'intervallo lun-dom di una settimana a partire dal lunedì "YYYY-MM-DD" (es.
-// "05–11/10"), per le etichette del grafico di andamento settimanale — mostrare solo la
-// data di inizio lasciava intendere un singolo giorno invece di un'intera settimana.
+// Etichetta di una settimana lun-dom per il grafico di andamento settimanale: la domenica
+// (ultimo giorno), non il lunedì di inizio — è il giorno in cui il risultato della
+// settimana è completo, coerente col fatto che il punto raccoglie il totale di tutta la
+// settimana. Riceve il lunedì "YYYY-MM-DD" (settimana_inizio) e restituisce gg/mm/aaaa.
 export function formattaSettimana(isoInizio) {
   if (!isoInizio) return '';
-  const inizio = new Date(`${isoInizio}T00:00:00`);
-  const fine = new Date(inizio);
+  const fine = new Date(`${isoInizio}T00:00:00`);
   fine.setDate(fine.getDate() + 6);
-  const giornoInizio = String(inizio.getDate()).padStart(2, '0');
-  const giornoFine = String(fine.getDate()).padStart(2, '0');
-  const meseInizio = String(inizio.getMonth() + 1).padStart(2, '0');
-  const meseFine = String(fine.getMonth() + 1).padStart(2, '0');
-  if (meseInizio === meseFine) {
-    return `${giornoInizio}–${giornoFine}/${meseFine}`;
-  }
-  return `${giornoInizio}/${meseInizio}–${giornoFine}/${meseFine}`;
+  const giorno = String(fine.getDate()).padStart(2, '0');
+  const mese = String(fine.getMonth() + 1).padStart(2, '0');
+  const anno = fine.getFullYear();
+  return `${giorno}/${mese}/${anno}`;
 }
