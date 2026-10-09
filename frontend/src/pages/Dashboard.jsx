@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { api } from '../lib/api';
 import { formattaData, formattaSettimana } from '../lib/date';
 import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
+import { CIRCONFERENZE } from '../lib/misurazioni';
 
 function inizioSettimana() {
   const oggi = new Date();
@@ -145,6 +146,7 @@ export default function Dashboard() {
   const [allenamenti, setAllenamenti] = useState([]);
   const [andamento, setAndamento] = useState([]);
   const [gruppoSelezionato, setGruppoSelezionato] = useState('');
+  const [campoMisura, setCampoMisura] = useState('peso_kg');
   const [caricamento, setCaricamento] = useState(true);
   const [caricamentoAndamento, setCaricamentoAndamento] = useState(false);
 
@@ -201,14 +203,16 @@ export default function Dashboard() {
     setAndamento((prev) => prev.map((s) => (s.settimana_inizio === settimanaInizio ? { ...s, scarico } : s)));
   }
 
-  const datiPeso = useMemo(
+  const datiMisura = useMemo(
     () =>
       [...misurazioni]
-        .filter((m) => m.peso_kg != null)
+        .filter((m) => m[campoMisura] != null)
         .reverse()
-        .map((m) => ({ data: formattaData(m.data), peso: Number(m.peso_kg) })),
-    [misurazioni]
+        .map((m) => ({ data: formattaData(m.data), valore: Number(m[campoMisura]) })),
+    [misurazioni, campoMisura]
   );
+  const etichettaMisura = campoMisura === 'peso_kg' ? 'Peso' : CIRCONFERENZE.find((c) => c.chiave === campoMisura)?.etichetta;
+  const unitaMisura = campoMisura === 'peso_kg' ? 'kg' : 'cm';
 
   const ultimaMisurazione = misurazioni[0];
   const allenamentiSettimana = useMemo(() => {
@@ -366,17 +370,31 @@ export default function Dashboard() {
         )}
       </div>
 
-      {datiPeso.length > 1 && (
+      {misurazioni.length > 0 && (
         <div className="pannello">
-          <h2>Andamento peso</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={datiPeso}>
-              <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={36} />
-              <Tooltip />
-              <Line type="monotone" dataKey="peso" stroke="#1e6feb" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="pannello__header">
+            <h2>Andamento misure</h2>
+            <select value={campoMisura} onChange={(e) => setCampoMisura(e.target.value)}>
+              <option value="peso_kg">Peso</option>
+              {CIRCONFERENZE.map((c) => (
+                <option key={c.chiave} value={c.chiave}>
+                  {c.etichetta}
+                </option>
+              ))}
+            </select>
+          </div>
+          {datiMisura.length > 1 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={datiMisura}>
+                <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={36} />
+                <Tooltip formatter={(valore) => [`${valore} ${unitaMisura}`, etichettaMisura]} />
+                <Line type="monotone" dataKey="valore" stroke="#1e6feb" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="testo-secondario">Servono almeno due misurazioni di "{etichettaMisura}" per il grafico.</p>
+          )}
         </div>
       )}
     </div>

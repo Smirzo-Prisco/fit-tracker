@@ -2,15 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
-
-const CIRCONFERENZE = [
-  { chiave: 'braccio_cm', etichetta: 'Braccio' },
-  { chiave: 'torace_cm', etichetta: 'Torace' },
-  { chiave: 'vita_cm', etichetta: 'Vita' },
-  { chiave: 'fianchi_cm', etichetta: 'Fianchi' },
-  { chiave: 'coscia_cm', etichetta: 'Coscia' },
-  { chiave: 'polpaccio_cm', etichetta: 'Polpaccio' },
-];
+import { CIRCONFERENZE } from '../lib/misurazioni';
 
 const VUOTO = {
   data: new Date().toISOString().slice(0, 10),
