@@ -206,26 +206,38 @@ router.get(
   })
 );
 
-// Serie dell'ultima volta che l'esercizio è stato svolto (in un allenamento diverso da
-// quello indicato in ?escludi) — usata da NuovoAllenamento per precompilare le serie
-// come placeholder e calcolare il punteggio di riferimento da battere.
+// Serie dell'ultima volta che l'esercizio è stato svolto PRIMA dell'allenamento indicato in
+// ?escludi — usata da NuovoAllenamento per precompilare le serie come placeholder e
+// calcolare il punteggio di riferimento da battere.
 router.get(
   '/:id/ultima-sessione',
   asyncHandler(async (req, res) => {
     const escludiAllenamento = parseInt(req.query.escludi, 10) || 0;
+
+    // Serve la data dell'allenamento aperto per poter cercare solo sessioni
+    // cronologicamente precedenti: escludere solo quell'id (senza il filtro sulla data)
+    // non basta, perché riaprendo un allenamento VECCHIO per modificarlo la sessione più
+    // recente "tra tutte le altre" potrebbe essere successiva ad esso — mostrando come
+    // "ultima volta" una sessione nel futuro rispetto a quella che si sta guardando.
+    const [correnteRows] = await pool.query('SELECT data FROM allenamenti WHERE id = ?', [escludiAllenamento]);
+    const dataCorrente = correnteRows[0]?.data ?? null;
+
     const [riferimento] = await pool.query(
       // EXISTS: un allenamento preparato in anticipo ma non ancora svolto (nessuna
       // serie salvata) non deve mai passare per "ultima sessione" solo perché ha una
       // data più recente di quella vera — altrimenti i placeholder di un allenamento
       // vecchio ma già completato spariscono a favore di uno futuro ancora vuoto.
+      // Il confronto su data E id (non solo data) distingue correttamente due sessioni
+      // registrate lo stesso giorno.
       `SELECT ae.id, a.data
        FROM allenamento_esercizi ae
        JOIN allenamenti a ON a.id = ae.allenamento_id
        WHERE ae.esercizio_id = ? AND a.utente_id = ? AND a.id != ?
+         AND (? IS NULL OR a.data < ? OR (a.data = ? AND a.id < ?))
          AND EXISTS (SELECT 1 FROM serie s WHERE s.allenamento_esercizio_id = ae.id)
        ORDER BY a.data DESC, a.id DESC
        LIMIT 1`,
-      [req.params.id, req.utenteId, escludiAllenamento]
+      [req.params.id, req.utenteId, escludiAllenamento, dataCorrente, dataCorrente, dataCorrente, escludiAllenamento]
     );
     if (!riferimento[0]) return res.json({ data: null, serie: [], riferimento_1rm: null });
 
