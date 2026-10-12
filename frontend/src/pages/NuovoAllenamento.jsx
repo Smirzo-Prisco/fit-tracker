@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
-import { punteggioSerie } from '../lib/punteggioCarico';
+import { punteggioSerie, formattaPunteggio } from '../lib/punteggioCarico';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
 // Punteggio di carico totale di un allenamento: sommato su ogni serie che ha tutti e tre i
@@ -26,7 +26,7 @@ function punteggioReale(esercizi) {
       totale += punteggio;
     }
   }
-  return almenoUna ? Math.round(totale) : null;
+  return almenoUna ? totale : null;
 }
 
 // Come sopra, ma per ogni campo lasciato vuoto usa il valore di riferimento (l'ultima
@@ -49,7 +49,7 @@ function punteggioProiettato(esercizi) {
       totale += punteggio;
     }
   }
-  return almenoUna ? Math.round(totale) : null;
+  return almenoUna ? totale : null;
 }
 
 // Stessa formula, ma su un elenco grezzo di serie {ripetizioni, peso_kg, rpe} come arrivano
@@ -84,9 +84,10 @@ function serieDaStorico(serieStorico) {
   return serieStorico.map((rif) => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: rif }));
 }
 
-// "+58" / "-12" / "+0" — usato per i tre confronti mostrati sotto il punteggio previsto.
+// "+58,25" / "-12,40" / "+0,00" — usato per i tre confronti mostrati sotto il punteggio
+// previsto. Il segno meno dei valori negativi arriva già da formattaPunteggio (toLocaleString).
 function formattaDelta(diff) {
-  return `${diff >= 0 ? '+' : ''}${diff}`;
+  return `${diff >= 0 ? '+' : ''}${formattaPunteggio(diff)}`;
 }
 
 // Aggancia i valori di riferimento alle serie già salvate (posizione per posizione) e,
@@ -350,7 +351,7 @@ export default function NuovoAllenamento() {
         almenoUno = true;
       }
     }
-    return almenoUno ? Math.round(totale) : null;
+    return almenoUno ? totale : null;
   }, [esercizi]);
 
   const eserciziSenzaStorico = useMemo(
@@ -379,21 +380,21 @@ export default function NuovoAllenamento() {
       {proiettato != null && (
         <>
           <p className="testo-secondario">
-            Punteggio di carico previsto: <strong>{proiettato}</strong>
+            Punteggio di carico previsto: <strong>{formattaPunteggio(proiettato)}</strong>
             {/* Finché non è tutto compilato, "previsto" include ancora dei placeholder:
                 questo mostra quanto di quel totale è già davvero registrato. */}
-            {reale != null && reale !== proiettato && <> — già registrato: {reale}</>}
+            {reale != null && reale !== proiettato && <> — già registrato: {formattaPunteggio(reale)}</>}
           </p>
           {punteggioBaseline != null && (
             <p className="testo-secondario">
-              Ultima volta per questi stessi esercizi: {punteggioBaseline} (
+              Ultima volta per questi stessi esercizi: {formattaPunteggio(punteggioBaseline)} (
               <strong>{formattaDelta(proiettato - punteggioBaseline)}</strong>)
             </p>
           )}
           {allenamentoPrecedente && (
             <p className="testo-secondario">
               Allenamento precedente ({formattaData(allenamentoPrecedente.data)}, esercizi anche diversi da oggi):{' '}
-              {allenamentoPrecedente.punteggio_totale} (
+              {formattaPunteggio(allenamentoPrecedente.punteggio_totale)} (
               <strong>{formattaDelta(proiettato - allenamentoPrecedente.punteggio_totale)}</strong>)
             </p>
           )}

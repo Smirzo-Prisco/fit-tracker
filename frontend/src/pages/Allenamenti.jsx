@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
+import { formattaPunteggio } from '../lib/punteggioCarico';
 
 export default function Allenamenti() {
   const [lista, setLista] = useState([]);
@@ -44,10 +45,10 @@ export default function Allenamenti() {
               </span>
               <span className="testo-secondario">
                 {a.numero_esercizi} esercizi{a.durata_min ? ` · ${a.durata_min} min` : ''}
-                {a.punteggio_reale != null && ` · 🏋️ ${a.punteggio_reale}`}
+                {a.punteggio_reale != null && ` · 🏋️ ${formattaPunteggio(a.punteggio_reale)}`}
                 {a.punteggio_reale == null &&
                   a.punteggio_previsto != null &&
-                  ` · 🏋️ ${a.punteggio_previsto} (previsto)`}
+                  ` · 🏋️ ${formattaPunteggio(a.punteggio_previsto)} (previsto)`}
               </span>
               {a.note && <p className="testo-secondario">{a.note}</p>}
             </Link>

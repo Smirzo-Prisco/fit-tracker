@@ -1,3 +1,5 @@
+import { formattaPunteggio } from '../lib/punteggioCarico';
+
 export default function RigaEsercizio({
   esercizio,
   punteggioCorrente,
@@ -12,7 +14,7 @@ export default function RigaEsercizio({
   // diversa, vedi GET /esercizi/:id/ultima-sessione) — un dato storico fisso,
   // non il valore "proiettato" che mischiava reale e placeholder: qui servono
   // due numeri distinti e sempre coerenti con quello che chiedi, non un ibrido.
-  const punteggioUltimo = esercizio.haStorico ? Math.round(esercizio.storicoPunteggio) : null;
+  const punteggioUltimo = esercizio.haStorico ? esercizio.storicoPunteggio : null;
 
   return (
     <div className="blocco-esercizio">
@@ -30,10 +32,10 @@ export default function RigaEsercizio({
           {esercizio.storicoCaricato && (
             punteggioUltimo != null ? (
               <span className="riga-esercizio__punteggio">
-                Ultimo: <strong>{punteggioUltimo}</strong>
+                Ultimo: <strong>{formattaPunteggio(punteggioUltimo)}</strong>
                 {punteggioCorrente != null && (
                   <>
-                    {' · '}Attuale: <strong>{punteggioCorrente}</strong>
+                    {' · '}Attuale: <strong>{formattaPunteggio(punteggioCorrente)}</strong>
                   </>
                 )}
               </span>
@@ -42,7 +44,7 @@ export default function RigaEsercizio({
                 <span className="badge-nuovo">nuovo, nessun dato precedente</span>
                 {punteggioCorrente != null && (
                   <span className="riga-esercizio__punteggio">
-                    Attuale: <strong>{punteggioCorrente}</strong>
+                    Attuale: <strong>{formattaPunteggio(punteggioCorrente)}</strong>
                   </span>
                 )}
               </>

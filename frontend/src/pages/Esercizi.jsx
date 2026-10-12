@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
 import { GRUPPI_MUSCOLARI, COLORE_GRUPPO } from '../lib/gruppiMuscolari';
 import { trovaEsercizioSimile } from '../lib/similitudineEsercizi';
-import { punteggioSerie } from '../lib/punteggioCarico';
+import { punteggioSerie, formattaPunteggio } from '../lib/punteggioCarico';
 
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
@@ -72,7 +72,7 @@ export default function Esercizi() {
       setProgressioneCarico(
         [...perData.entries()]
           .sort(([a], [b]) => (a < b ? -1 : 1))
-          .map(([data, punteggio]) => ({ data: formattaData(data), punteggio: Math.round(punteggio) }))
+          .map(([data, punteggio]) => ({ data: formattaData(data), punteggio }))
       );
     });
   }
@@ -419,7 +419,7 @@ export default function Esercizi() {
                     <LineChart data={progressioneCarico}>
                       <XAxis dataKey="data" tick={{ fontSize: 11 }} />
                       <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
-                      <Tooltip />
+                      <Tooltip formatter={(valore) => formattaPunteggio(valore)} />
                       <Line type="monotone" dataKey="punteggio" stroke="#e5484d" strokeWidth={2} dot />
                     </LineChart>
                   </ResponsiveContainer>

@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { formattaData, formattaSettimana } from '../lib/date';
 import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
 import { CIRCONFERENZE } from '../lib/misurazioni';
+import { formattaPunteggio } from '../lib/punteggioCarico';
 
 function inizioSettimana() {
   const oggi = new Date();
@@ -295,7 +296,7 @@ export default function Dashboard() {
                   <LineChart data={datiCarico}>
                     <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
                     <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
-                    <Tooltip />
+                    <Tooltip formatter={(valore) => formattaPunteggio(valore)} />
                     <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
                     <Line
                       type="monotone"

@@ -94,8 +94,8 @@ router.get(
         const agg = perAllenamento[a.id];
         return {
           ...a,
-          punteggio_reale: agg && agg.realeCount > 0 ? Math.round(agg.realeSum) : null,
-          punteggio_previsto: agg && agg.proiettatoCount > 0 ? Math.round(agg.proiettatoSum) : null,
+          punteggio_reale: agg && agg.realeCount > 0 ? Math.round(agg.realeSum * 100) / 100 : null,
+          punteggio_previsto: agg && agg.proiettatoCount > 0 ? Math.round(agg.proiettatoSum * 100) / 100 : null,
         };
       })
     );
@@ -196,7 +196,7 @@ router.get(
         for (let gs = oggiSettimana + 1; gs <= 6; gs++) {
           stimaRestante += ultimoPerGiornoSettimana[gs] ?? 0;
         }
-        proiezioneSettimanaCorrente = Math.round(Number(rows[0].punteggio_totale) + stimaRestante);
+        proiezioneSettimanaCorrente = Math.round((Number(rows[0].punteggio_totale) + stimaRestante) * 100) / 100;
       }
     }
 
@@ -205,7 +205,7 @@ router.get(
         .reverse()
         .map((r, i, arr) => ({
           settimana_inizio: r.settimana_inizio,
-          punteggio_totale: Math.round(Number(r.punteggio_totale)),
+          punteggio_totale: Math.round(Number(r.punteggio_totale) * 100) / 100,
           punteggio_proiettato: i === arr.length - 1 ? proiezioneSettimanaCorrente : null,
           rpe_medio: Number(r.rpe_medio),
           numero_set: r.numero_set,
@@ -296,7 +296,7 @@ router.get(
       [req.utenteId, req.utenteId, allenamento.id]
     );
     const precedente = precedenteRows[0]
-      ? { data: precedenteRows[0].data, punteggio_totale: Math.round(Number(precedenteRows[0].punteggio_totale)) }
+      ? { data: precedenteRows[0].data, punteggio_totale: Math.round(Number(precedenteRows[0].punteggio_totale) * 100) / 100 }
       : null;
 
     res.json({

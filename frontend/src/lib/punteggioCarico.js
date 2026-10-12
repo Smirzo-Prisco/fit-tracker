@@ -11,3 +11,11 @@ export function punteggioSerie(ripetizioni, kg, rpe, riferimento1Rm) {
   if (!riferimento1Rm) return null;
   return ripetizioni * (kg / riferimento1Rm) * (rpe / 10);
 }
+
+// Formattazione comune di un punteggio di carico per la visualizzazione: sempre due
+// decimali (virgola italiana), unico punto di verità per non ritrovarsi formati diversi
+// (es. un posto con Math.round e un altro con tre decimali) sparsi tra le pagine.
+export function formattaPunteggio(numero) {
+  if (numero == null) return '—';
+  return numero.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
