@@ -649,6 +649,7 @@ textarea:focus {
 .riga-scheda-esercizio {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   background: var(--colore-pannello);
   border: 1px solid var(--colore-bordo);
@@ -674,6 +675,18 @@ textarea:focus {
   min-width: 0;
 }
 
+/* Raggruppa obiettivo (serie×rip) e azioni: su mobile flex-basis:100% lo forza su una
+   riga propria sotto al nome (invece di spartirsi lo spazio sulla stessa riga e
+   schiacciare il nome fino a renderlo illeggibile). Da 768px in su (sotto) torna
+   inline sulla stessa riga del nome, c'è spazio a sufficienza. */
+.riga-scheda-esercizio__riga2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 100%;
+  justify-content: flex-end;
+}
+
 .riga-scheda-esercizio__obiettivo {
   width: 52px;
   flex-shrink: 0;
@@ -693,6 +706,12 @@ textarea:focus {
 .riga-scheda-esercizio__azioni {
   display: flex;
   gap: 4px;
+}
+
+@media (min-width: 768px) {
+  .riga-scheda-esercizio__riga2 {
+    flex: 0 0 auto;
+  }
 }
 
 .riga-scheda-esercizio__azioni button {

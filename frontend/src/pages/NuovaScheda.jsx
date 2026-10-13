@@ -122,40 +122,42 @@ export default function NuovaScheda() {
                 <span className="riga-scheda-esercizio__ordine">{i + 1}</span>
                 {es?.immagine_url && <img src={es.immagine_url} alt="" />}
                 <span className="riga-scheda-esercizio__nome">{es?.nome || '—'}</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Serie"
-                  className="riga-scheda-esercizio__obiettivo"
-                  value={riga.serie_consigliate}
-                  onChange={(e) => aggiornaObiettivo(i, 'serie_consigliate', e.target.value)}
-                  aria-label="Serie consigliate"
-                />
-                <span className="riga-scheda-esercizio__per">×</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Rip."
-                  className="riga-scheda-esercizio__obiettivo"
-                  value={riga.ripetizioni_consigliate}
-                  onChange={(e) => aggiornaObiettivo(i, 'ripetizioni_consigliate', e.target.value)}
-                  aria-label="Ripetizioni consigliate"
-                />
-                <div className="riga-scheda-esercizio__azioni">
-                  <button type="button" onClick={() => sposta(i, -1)} disabled={i === 0} aria-label="Sposta su">
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => sposta(i, 1)}
-                    disabled={i === esercizi.length - 1}
-                    aria-label="Sposta giù"
-                  >
-                    ↓
-                  </button>
-                  <button type="button" onClick={() => rimuoviEsercizio(i)} aria-label="Rimuovi">
-                    ✕
-                  </button>
+                <div className="riga-scheda-esercizio__riga2">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Serie"
+                    className="riga-scheda-esercizio__obiettivo"
+                    value={riga.serie_consigliate}
+                    onChange={(e) => aggiornaObiettivo(i, 'serie_consigliate', e.target.value)}
+                    aria-label="Serie consigliate"
+                  />
+                  <span className="riga-scheda-esercizio__per">×</span>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Rip."
+                    className="riga-scheda-esercizio__obiettivo"
+                    value={riga.ripetizioni_consigliate}
+                    onChange={(e) => aggiornaObiettivo(i, 'ripetizioni_consigliate', e.target.value)}
+                    aria-label="Ripetizioni consigliate"
+                  />
+                  <div className="riga-scheda-esercizio__azioni">
+                    <button type="button" onClick={() => sposta(i, -1)} disabled={i === 0} aria-label="Sposta su">
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sposta(i, 1)}
+                      disabled={i === esercizi.length - 1}
+                      aria-label="Sposta giù"
+                    >
+                      ↓
+                    </button>
+                    <button type="button" onClick={() => rimuoviEsercizio(i)} aria-label="Rimuovi">
+                      ✕
+                    </button>
+                  </div>
                 </div>
               </div>
             );
