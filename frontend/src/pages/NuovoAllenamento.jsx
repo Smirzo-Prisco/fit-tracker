@@ -225,15 +225,27 @@ export default function NuovoAllenamento() {
   async function caricaDaScheda(nuovoSchedaId) {
     setSchedaId(nuovoSchedaId);
     salvaCampiTop({ scheda_id: nuovoSchedaId || null });
+
+    // Cambiando scheda (per errore o ripensamento) gli esercizi attuali vanno sostituiti,
+    // non accumulati sopra ai nuovi — altrimenti l'allenamento finisce con gli esercizi di
+    // ENTRAMBE le schede. Rimuove prima tutti quelli già presenti (solo quelli con un id:
+    // sono già salvati sul server), poi carica da zero quelli della scheda scelta.
+    try {
+      await Promise.all(esercizi.filter((e) => e.id).map((e) => api.del(`/allenamenti/${id}/esercizi/${e.id}`)));
+    } catch (err) {
+      setErroreSalvataggio('Impossibile svuotare gli esercizi precedenti: ' + err.message);
+      return;
+    }
+    setEsercizi([]);
+    setErroreSalvataggio('');
+
     if (!nuovoSchedaId) {
       setSchedaEsercizi([]);
       return;
     }
     const scheda = await api.get(`/schede/${nuovoSchedaId}`);
     setSchedaEsercizi(scheda.esercizi);
-    const idGiaPresenti = new Set(esercizi.map((e) => String(e.esercizio_id)));
     for (const es of scheda.esercizi) {
-      if (idGiaPresenti.has(String(es.esercizio_id))) continue;
       await aggiungiEsercizio(es.esercizio_id, scheda.esercizi);
     }
   }
