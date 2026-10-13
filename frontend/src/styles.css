@@ -172,6 +172,24 @@ a {
   margin-bottom: var(--spaziatura);
 }
 
+.tooltip-grafico {
+  background: var(--colore-pannello);
+  border: 1px solid var(--colore-bordo);
+  border-radius: var(--raggio);
+  padding: 8px 12px;
+  color: var(--colore-testo);
+  font-size: 0.85rem;
+}
+
+.tooltip-grafico p {
+  margin: 2px 0;
+}
+
+.tooltip-grafico__data {
+  color: var(--colore-testo-secondario);
+  font-size: 0.8rem;
+}
+
 .pannello__header {
   display: flex;
   align-items: center;

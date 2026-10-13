@@ -6,6 +6,27 @@ import { GRUPPI_MUSCOLARI, COLORE_GRUPPO } from '../lib/gruppiMuscolari';
 import { trovaEsercizioSimile } from '../lib/similitudineEsercizi';
 import { punteggioSerie, formattaPunteggio } from '../lib/punteggioCarico';
 
+// Tooltip custom per il grafico di progressione: quello di default di recharts ha sfondo
+// bianco ed etichetta della data in grigio chiaro (#999, non personalizzabile col solo prop
+// labelStyle senza perdere il resto dello stile default) — su un'app a tema scuro risultava
+// un riquadro bianco stonato con la data a malapena leggibile. Usa i token colore dell'app
+// invece dei default di recharts, e aggiunge la media kg della sessione.
+function TooltipProgressione({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const { punteggio, kgMedio } = payload[0].payload;
+  return (
+    <div className="tooltip-grafico">
+      <p className="tooltip-grafico__data">{label}</p>
+      <p>
+        Punteggio: <strong>{formattaPunteggio(punteggio)}</strong>
+      </p>
+      <p>
+        Media kg: <strong>{kgMedio.toFixed(1)} kg</strong>
+      </p>
+    </div>
+  );
+}
+
 export default function Esercizi() {
   const [catalogo, setCatalogo] = useState([]);
   const [caricamento, setCaricamento] = useState(true);
@@ -61,18 +82,23 @@ export default function Esercizi() {
       // data (vedi punteggioSerie in lib/punteggioCarico per la formula) — solo quelle con
       // RPE registrato, i dati storici pre-RPE non contribuiscono, non vanno trattati come
       // punteggio 0. riferimento_1rm è lo stesso per tutta la progressione (vedi commento
-      // su punteggioSerie): non cambia sessione per sessione.
+      // su punteggioSerie): non cambia sessione per sessione. kgTotale/kgConteggio servono
+      // per la media kg della sessione mostrata nel tooltip (stesso filtro di validità).
       const perData = new Map();
       for (const d of serie) {
         if (d.ripetizioni == null || d.peso_kg == null || d.rpe == null) continue;
         const punteggio = punteggioSerie(Number(d.ripetizioni), Number(d.peso_kg), Number(d.rpe), riferimento_1rm);
         if (punteggio == null) continue;
-        perData.set(d.data, (perData.get(d.data) || 0) + punteggio);
+        const riga = perData.get(d.data) || { punteggio: 0, kgTotale: 0, kgConteggio: 0 };
+        riga.punteggio += punteggio;
+        riga.kgTotale += Number(d.peso_kg);
+        riga.kgConteggio += 1;
+        perData.set(d.data, riga);
       }
       setProgressioneCarico(
         [...perData.entries()]
           .sort(([a], [b]) => (a < b ? -1 : 1))
-          .map(([data, punteggio]) => ({ data: formattaData(data), punteggio }))
+          .map(([data, r]) => ({ data: formattaData(data), punteggio: r.punteggio, kgMedio: r.kgTotale / r.kgConteggio }))
       );
     });
   }
@@ -419,7 +445,7 @@ export default function Esercizi() {
                     <LineChart data={progressioneCarico}>
                       <XAxis dataKey="data" tick={{ fontSize: 11 }} />
                       <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
-                      <Tooltip formatter={(valore) => formattaPunteggio(valore)} />
+                      <Tooltip content={<TooltipProgressione />} />
                       <Line type="monotone" dataKey="punteggio" stroke="#e5484d" strokeWidth={2} dot />
                     </LineChart>
                   </ResponsiveContainer>
