@@ -526,6 +526,11 @@ textarea:focus {
   color: var(--colore-testo-secondario);
 }
 
+.riga-esercizio__obiettivo {
+  font-size: 0.8rem;
+  color: var(--colore-testo-secondario);
+}
+
 .badge-nuovo {
   align-self: flex-start;
   background: color-mix(in srgb, var(--colore-primario) 18%, transparent);
@@ -667,6 +672,22 @@ textarea:focus {
 .riga-scheda-esercizio__nome {
   flex: 1;
   min-width: 0;
+}
+
+.riga-scheda-esercizio__obiettivo {
+  width: 52px;
+  flex-shrink: 0;
+  text-align: center;
+  background: var(--colore-sfondo);
+  border: 1px solid var(--colore-bordo);
+  border-radius: 6px;
+  color: var(--colore-testo);
+  padding: 4px 2px;
+}
+
+.riga-scheda-esercizio__per {
+  color: var(--colore-testo-secondario);
+  flex-shrink: 0;
 }
 
 .riga-scheda-esercizio__azioni {

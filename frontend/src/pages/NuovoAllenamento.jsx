@@ -84,6 +84,14 @@ function serieDaStorico(serieStorico) {
   return serieStorico.map((rif) => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: rif }));
 }
 
+// Esercizio senza storico ma con un obiettivo di serie dalla scheda (vedi serie_consigliate
+// in scheda_esercizi): precompila quante righe vuote servono invece di partire da zero,
+// senza nessun valore di riferimento numerico da superare (non c'è ancora uno storico reale).
+function serieVuote(numero) {
+  const n = Math.max(0, Number(numero) || 0);
+  return Array.from({ length: n }, () => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: null }));
+}
+
 // "+58,25" / "-12,40" / "+0,00" — usato per i tre confronti mostrati sotto il punteggio
 // previsto. Il segno meno dei valori negativi arriva già da formattaPunteggio (toLocaleString).
 function formattaDelta(diff) {
@@ -154,8 +162,10 @@ export default function NuovoAllenamento() {
           })),
         }))
       );
+      let schedaEserciziLocali = [];
       if (a.scheda_id) {
         const scheda = await api.get(`/schede/${a.scheda_id}`);
+        schedaEserciziLocali = scheda.esercizi;
         setSchedaEsercizi(scheda.esercizi);
       }
       setCaricamento(false);
@@ -164,19 +174,28 @@ export default function NuovoAllenamento() {
       // anche riaprendo un allenamento già iniziato — senza aggiungere nuove serie.
       for (const e of a.esercizi) {
         const storico = await caricaStorico(e.esercizio_id, id);
+        const obiettivo = schedaEserciziLocali.find((se) => String(se.esercizio_id) === String(e.esercizio_id));
         setEsercizi((prev) =>
-          prev.map((riga) =>
-            riga.id === e.id
-              ? {
-                  ...riga,
-                  serie: conRiferimenti(riga.serie, storico.serie),
-                  haStorico: storico.serie.length > 0,
-                  storicoCaricato: true,
-                  riferimento1Rm: storico.riferimento_1rm,
-                  storicoPunteggio: punteggioSerieList(storico.serie, storico.riferimento_1rm),
-                }
-              : riga
-          )
+          prev.map((riga) => {
+            if (riga.id !== e.id) return riga;
+            let serie = conRiferimenti(riga.serie, storico.serie);
+            // Nessuna serie salvata e nessuno storico: precompila con l'obiettivo della
+            // scheda invece di lasciare l'esercizio senza nemmeno una riga da riempire.
+            if (serie.length === 0 && storico.serie.length === 0 && obiettivo?.serie_consigliate) {
+              serie = serieVuote(obiettivo.serie_consigliate);
+            }
+            return {
+              ...riga,
+              serie,
+              haStorico: storico.serie.length > 0,
+              storicoCaricato: true,
+              riferimento1Rm: storico.riferimento_1rm,
+              storicoPunteggio: punteggioSerieList(storico.serie, storico.riferimento_1rm),
+              obiettivo: obiettivo
+                ? { serie: obiettivo.serie_consigliate, ripetizioni: obiettivo.ripetizioni_consigliate }
+                : null,
+            };
+          })
         );
       }
     })();
@@ -215,31 +234,42 @@ export default function NuovoAllenamento() {
     const idGiaPresenti = new Set(esercizi.map((e) => String(e.esercizio_id)));
     for (const es of scheda.esercizi) {
       if (idGiaPresenti.has(String(es.esercizio_id))) continue;
-      await aggiungiEsercizio(es.esercizio_id);
+      await aggiungiEsercizio(es.esercizio_id, scheda.esercizi);
     }
   }
 
-  async function aggiungiEsercizio(esercizioId) {
+  // elencoSchedaEsercizi: normalmente la scheda caricata (stato schedaEsercizi), ma
+  // chiamata da caricaDaScheda() passa l'elenco appena scaricato — lo stato non avrebbe
+  // ancora il valore fresco al momento di questa chiamata (setState è asincrono).
+  async function aggiungiEsercizio(esercizioId, elencoSchedaEsercizi = schedaEsercizi) {
     if (!esercizioId) return;
     try {
       const riga = await api.post(`/allenamenti/${id}/esercizi`, { esercizio_id: esercizioId });
       setEsercizi((prev) => [...prev, { ...riga, storicoCaricato: false, haStorico: false, storicoPunteggio: 0 }]);
       setErroreSalvataggio('');
 
+      const obiettivoRiga = elencoSchedaEsercizi.find((se) => String(se.esercizio_id) === String(esercizioId));
+      const obiettivo = obiettivoRiga
+        ? { serie: obiettivoRiga.serie_consigliate, ripetizioni: obiettivoRiga.ripetizioni_consigliate }
+        : null;
+
       // Precompila automaticamente le stesse serie dell'ultima volta (come placeholder)
       // e calcola il punteggio di riferimento da battere — arriva un attimo dopo,
-      // la riga dell'esercizio intanto è già visibile e utilizzabile.
+      // la riga dell'esercizio intanto è già visibile e utilizzabile. Senza storico, usa
+      // l'obiettivo di serie della scheda (se presente) per non partire da zero righe.
       const storico = await caricaStorico(esercizioId, id);
       setEsercizi((prev) =>
         prev.map((e) =>
           e.id === riga.id
             ? {
                 ...e,
-                serie: serieDaStorico(storico.serie),
+                serie:
+                  storico.serie.length > 0 ? serieDaStorico(storico.serie) : serieVuote(obiettivo?.serie),
                 haStorico: storico.serie.length > 0,
                 storicoCaricato: true,
                 riferimento1Rm: storico.riferimento_1rm,
                 storicoPunteggio: punteggioSerieList(storico.serie, storico.riferimento_1rm),
+                obiettivo,
               }
             : e
         )

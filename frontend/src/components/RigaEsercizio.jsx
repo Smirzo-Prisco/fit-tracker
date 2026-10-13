@@ -29,6 +29,11 @@ export default function RigaEsercizio({
 
         <div className="riga-esercizio__campi">
           <span className="riga-esercizio__nome-fisso">{esercizio.nome}</span>
+          {(esercizio.obiettivo?.serie || esercizio.obiettivo?.ripetizioni) && (
+            <span className="riga-esercizio__obiettivo" title="Obiettivo dalla scheda">
+              🎯 {esercizio.obiettivo.serie || '?'}×{esercizio.obiettivo.ripetizioni || '?'}
+            </span>
+          )}
           {esercizio.storicoCaricato && (
             punteggioUltimo != null ? (
               <span className="riga-esercizio__punteggio">
@@ -68,7 +73,13 @@ export default function RigaEsercizio({
               <span className="riga-serie__numero">{i + 1}</span>
               <input
                 type="number"
-                placeholder={rif.ripetizioni != null ? String(rif.ripetizioni) : 'Rip.'}
+                placeholder={
+                  rif.ripetizioni != null
+                    ? String(rif.ripetizioni)
+                    : esercizio.obiettivo?.ripetizioni
+                      ? String(esercizio.obiettivo.ripetizioni)
+                      : 'Rip.'
+                }
                 value={s.ripetizioni}
                 onChange={(e) => onCambiaCampo(i, 'ripetizioni', e.target.value)}
                 onBlur={() => onBlurCampo(i)}

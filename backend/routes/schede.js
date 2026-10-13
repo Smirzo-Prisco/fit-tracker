@@ -34,7 +34,8 @@ router.get(
       return res.status(404).json({ error: 'Scheda non trovata' });
     }
     const [esercizi] = await pool.query(
-      `SELECT se.id, se.esercizio_id, se.ordine, e.nome, e.immagine_url
+      `SELECT se.id, se.esercizio_id, se.ordine, se.serie_consigliate, se.ripetizioni_consigliate,
+              e.nome, e.immagine_url
        FROM scheda_esercizi se
        JOIN esercizi e ON e.id = se.esercizio_id
        WHERE se.scheda_id = ?
@@ -56,11 +57,17 @@ async function salvaEsercizi(connection, schedaId, esercizi, utenteId) {
       utenteId,
     ]);
     if (!esercizioRows[0]) return 'Esercizio non trovato';
-    await connection.query('INSERT INTO scheda_esercizi (scheda_id, esercizio_id, ordine) VALUES (?, ?, ?)', [
-      schedaId,
-      esercizi[i].esercizio_id,
-      i,
-    ]);
+    await connection.query(
+      `INSERT INTO scheda_esercizi (scheda_id, esercizio_id, ordine, serie_consigliate, ripetizioni_consigliate)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        schedaId,
+        esercizi[i].esercizio_id,
+        i,
+        esercizi[i].serie_consigliate || null,
+        esercizi[i].ripetizioni_consigliate || null,
+      ]
+    );
   }
   return null;
 }

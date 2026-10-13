@@ -76,6 +76,12 @@ CREATE TABLE IF NOT EXISTS scheda_esercizi (
   scheda_id INT NOT NULL,
   esercizio_id INT NOT NULL,
   ordine INT NOT NULL DEFAULT 0,
+  -- Obiettivo di serie/ripetizioni per QUESTA scheda: lo stesso esercizio può comparire in
+  -- più schede con obiettivi diversi (es. forza vs ipertrofia), quindi il dato vive qui e
+  -- non sulla tabella esercizi. Solo un promemoria mostrato in Nuovo allenamento, non
+  -- vincolante e non usato nel punteggio di carico.
+  serie_consigliate INT,
+  ripetizioni_consigliate INT,
   FOREIGN KEY (scheda_id) REFERENCES schede(id) ON DELETE CASCADE,
   FOREIGN KEY (esercizio_id) REFERENCES esercizi(id) ON DELETE RESTRICT,
   INDEX idx_scheda_esercizi_scheda (scheda_id)

@@ -21,13 +21,23 @@ export default function NuovaScheda() {
     if (!inModifica) return;
     api.get(`/schede/${id}`).then((s) => {
       setNome(s.nome);
-      setEsercizi(s.esercizi.map((e) => e.esercizio_id));
+      setEsercizi(
+        s.esercizi.map((e) => ({
+          esercizio_id: e.esercizio_id,
+          serie_consigliate: e.serie_consigliate ?? '',
+          ripetizioni_consigliate: e.ripetizioni_consigliate ?? '',
+        }))
+      );
     });
   }, [id, inModifica]);
 
   function aggiungiEsercizio(esercizioId) {
     if (!esercizioId) return;
-    setEsercizi((prev) => [...prev, esercizioId]);
+    setEsercizi((prev) => [...prev, { esercizio_id: esercizioId, serie_consigliate: '', ripetizioni_consigliate: '' }]);
+  }
+
+  function aggiornaObiettivo(indice, campo, valore) {
+    setEsercizi((prev) => prev.map((e, i) => (i === indice ? { ...e, [campo]: valore } : e)));
   }
 
   function rimuoviEsercizio(indice) {
@@ -48,7 +58,14 @@ export default function NuovaScheda() {
     e.preventDefault();
     setErrore('');
     setSalvataggio(true);
-    const payload = { nome, esercizi: esercizi.map((esercizio_id) => ({ esercizio_id })) };
+    const payload = {
+      nome,
+      esercizi: esercizi.map((e) => ({
+        esercizio_id: e.esercizio_id,
+        serie_consigliate: e.serie_consigliate || null,
+        ripetizioni_consigliate: e.ripetizioni_consigliate || null,
+      })),
+    };
     try {
       if (inModifica) {
         await api.put(`/schede/${id}`, payload);
@@ -93,14 +110,37 @@ export default function NuovaScheda() {
         </label>
 
         <h2>Esercizi in ordine</h2>
+        <p className="testo-secondario">
+          Serie e ripetizioni sono solo un obiettivo di riferimento per quando farai l'allenamento da questa
+          scheda — non influenzano il punteggio di carico.
+        </p>
         <div className="lista-scheda-esercizi">
-          {esercizi.map((esercizioId, i) => {
-            const es = catalogo.find((e) => String(e.id) === String(esercizioId));
+          {esercizi.map((riga, i) => {
+            const es = catalogo.find((e) => String(e.id) === String(riga.esercizio_id));
             return (
               <div key={i} className="riga-scheda-esercizio">
                 <span className="riga-scheda-esercizio__ordine">{i + 1}</span>
                 {es?.immagine_url && <img src={es.immagine_url} alt="" />}
                 <span className="riga-scheda-esercizio__nome">{es?.nome || '—'}</span>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Serie"
+                  className="riga-scheda-esercizio__obiettivo"
+                  value={riga.serie_consigliate}
+                  onChange={(e) => aggiornaObiettivo(i, 'serie_consigliate', e.target.value)}
+                  aria-label="Serie consigliate"
+                />
+                <span className="riga-scheda-esercizio__per">×</span>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Rip."
+                  className="riga-scheda-esercizio__obiettivo"
+                  value={riga.ripetizioni_consigliate}
+                  onChange={(e) => aggiornaObiettivo(i, 'ripetizioni_consigliate', e.target.value)}
+                  aria-label="Ripetizioni consigliate"
+                />
                 <div className="riga-scheda-esercizio__azioni">
                   <button type="button" onClick={() => sposta(i, -1)} disabled={i === 0} aria-label="Sposta su">
                     ↑
