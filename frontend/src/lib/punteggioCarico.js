@@ -19,3 +19,10 @@ export function formattaPunteggio(numero) {
   if (numero == null) return '—';
   return numero.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// "+58,25" / "-12,40" / "+0,00" — differenza tra due punteggi di carico, con segno
+// esplicito anche per gli incrementi positivi. Il segno meno dei valori negativi
+// arriva già da formattaPunteggio (toLocaleString).
+export function formattaDelta(diff) {
+  return `${diff >= 0 ? '+' : ''}${formattaPunteggio(diff)}`;
+}

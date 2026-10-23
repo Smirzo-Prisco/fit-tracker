@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
-import { punteggioSerie, formattaPunteggio } from '../lib/punteggioCarico';
+import { punteggioSerie, formattaPunteggio, formattaDelta } from '../lib/punteggioCarico';
 import RigaEsercizio from '../components/RigaEsercizio.jsx';
 
 // Punteggio di carico totale di un allenamento: sommato su ogni serie che ha tutti e tre i
@@ -90,12 +90,6 @@ function serieDaStorico(serieStorico) {
 function serieVuote(numero) {
   const n = Math.max(0, Number(numero) || 0);
   return Array.from({ length: n }, () => ({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: null }));
-}
-
-// "+58,25" / "-12,40" / "+0,00" — usato per i tre confronti mostrati sotto il punteggio
-// previsto. Il segno meno dei valori negativi arriva già da formattaPunteggio (toLocaleString).
-function formattaDelta(diff) {
-  return `${diff >= 0 ? '+' : ''}${formattaPunteggio(diff)}`;
 }
 
 // Aggancia i valori di riferimento alle serie già salvate (posizione per posizione) e,

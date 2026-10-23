@@ -1,4 +1,4 @@
-import { formattaPunteggio } from '../lib/punteggioCarico';
+import { formattaPunteggio, formattaDelta } from '../lib/punteggioCarico';
 
 export default function RigaEsercizio({
   esercizio,
@@ -41,6 +41,7 @@ export default function RigaEsercizio({
                 {punteggioCorrente != null && (
                   <>
                     {' · '}Attuale: <strong>{formattaPunteggio(punteggioCorrente)}</strong>
+                    {' · '}<strong>{formattaDelta(punteggioCorrente - punteggioUltimo)}</strong>
                   </>
                 )}
               </span>
