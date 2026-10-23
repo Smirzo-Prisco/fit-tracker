@@ -413,7 +413,14 @@ export default function NuovoAllenamento() {
   return (
     <div className="pagina">
       <div className="pagina__header">
-        <h1>Allenamento</h1>
+        <h1>
+          Allenamento
+          {/* Almeno una serie ha ancora un campo vuoto coperto da un valore storico
+              di riferimento invece che da un dato realmente inserito ora. */}
+          {proiettato != null && reale !== proiettato && (
+            <span className="pallino-placeholder" title="Ci sono serie con campi non compilati: il punteggio include stime da sessioni precedenti" />
+          )}
+        </h1>
         <button type="button" className="btn btn--primario" onClick={() => navigate('/allenamenti')}>
           Fatto
         </button>
@@ -422,7 +429,7 @@ export default function NuovoAllenamento() {
       {proiettato != null && (
         <>
           <p className="testo-secondario">
-            Punteggio di carico previsto: <strong>{formattaPunteggio(proiettato)}</strong>
+            Punteggio previsto: <strong>{formattaPunteggio(proiettato)}</strong>
             {/* Finché non è tutto compilato, "previsto" include ancora dei placeholder:
                 questo mostra quanto di quel totale è già davvero registrato. */}
             {reale != null && reale !== proiettato && <> — già registrato: {formattaPunteggio(reale)}</>}
@@ -435,7 +442,7 @@ export default function NuovoAllenamento() {
           )}
           {allenamentoPrecedente && (
             <p className="testo-secondario">
-              Allenamento precedente ({formattaData(allenamentoPrecedente.data)}, esercizi anche diversi da oggi):{' '}
+              Allenamento precedente con stessa scheda ({formattaData(allenamentoPrecedente.data)}):{' '}
               {formattaPunteggio(allenamentoPrecedente.punteggio_totale)} (
               <strong>{formattaDelta(proiettato - allenamentoPrecedente.punteggio_totale)}</strong>)
             </p>

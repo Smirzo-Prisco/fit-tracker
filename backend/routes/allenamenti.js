@@ -278,26 +278,31 @@ router.get(
       }, {});
     }
 
-    // Allenamento precedente (l'intero, non solo gli esercizi in comune): stesso
-    // principio dell'EXISTS in /esercizi/:id/ultima-sessione — un allenamento
-    // pianificato ma ancora vuoto non deve mai contare come "precedente" solo
-    // perché ha una data più vicina a oggi.
-    const [precedenteRows] = await pool.query(
-      `SELECT a2.id, a2.data, SUM(${SQL_PUNTEGGIO_SERIE}) AS punteggio_totale
-       FROM allenamenti a2
-       JOIN allenamento_esercizi ae2 ON ae2.allenamento_id = a2.id
-       JOIN serie s ON s.allenamento_esercizio_id = ae2.id
-       ${sqlJoinRiferimento1Rm('ae2.esercizio_id')}
-       WHERE a2.utente_id = ? AND a2.id != ?
-         AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
-       GROUP BY a2.id
-       ORDER BY a2.data DESC, a2.id DESC
-       LIMIT 1`,
-      [req.utenteId, req.utenteId, allenamento.id]
-    );
-    const precedente = precedenteRows[0]
-      ? { data: precedenteRows[0].data, punteggio_totale: Math.round(Number(precedenteRows[0].punteggio_totale) * 100) / 100 }
-      : null;
+    // Allenamento precedente CON LA STESSA SCHEDA (l'intero, non solo gli esercizi
+    // in comune): stesso principio dell'EXISTS in /esercizi/:id/ultima-sessione —
+    // un allenamento pianificato ma ancora vuoto non deve mai contare come
+    // "precedente" solo perché ha una data più vicina a oggi. Se l'allenamento
+    // corrente non ha una scheda associata, il confronto non ha senso: nessun
+    // precedente da mostrare.
+    let precedente = null;
+    if (allenamento.scheda_id) {
+      const [precedenteRows] = await pool.query(
+        `SELECT a2.id, a2.data, SUM(${SQL_PUNTEGGIO_SERIE}) AS punteggio_totale
+         FROM allenamenti a2
+         JOIN allenamento_esercizi ae2 ON ae2.allenamento_id = a2.id
+         JOIN serie s ON s.allenamento_esercizio_id = ae2.id
+         ${sqlJoinRiferimento1Rm('ae2.esercizio_id')}
+         WHERE a2.utente_id = ? AND a2.id != ? AND a2.scheda_id = ?
+           AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
+         GROUP BY a2.id
+         ORDER BY a2.data DESC, a2.id DESC
+         LIMIT 1`,
+        [req.utenteId, req.utenteId, allenamento.id, allenamento.scheda_id]
+      );
+      precedente = precedenteRows[0]
+        ? { data: precedenteRows[0].data, punteggio_totale: Math.round(Number(precedenteRows[0].punteggio_totale) * 100) / 100 }
+        : null;
+    }
 
     res.json({
       ...allenamento,
