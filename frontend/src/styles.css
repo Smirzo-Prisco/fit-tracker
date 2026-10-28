@@ -357,6 +357,12 @@ a {
   gap: 12px;
 }
 
+.form__azioni {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .form label {
   display: flex;
   flex-direction: column;
@@ -466,6 +472,11 @@ textarea:focus {
   justify-content: space-between;
   padding: 8px 0;
   border-bottom: 1px solid var(--colore-bordo);
+}
+
+.lista-misurazioni__azioni {
+  display: flex;
+  gap: 4px;
 }
 
 .lista-allenamenti__riga {

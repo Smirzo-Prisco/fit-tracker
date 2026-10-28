@@ -19,6 +19,7 @@ const VUOTO = {
 export default function Misurazioni() {
   const [lista, setLista] = useState([]);
   const [form, setForm] = useState(VUOTO);
+  const [idInModifica, setIdInModifica] = useState(null);
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
   const [campoGrafico, setCampoGrafico] = useState('peso_kg');
@@ -37,8 +38,13 @@ export default function Misurazioni() {
     setErrore('');
     setSalvataggio(true);
     try {
-      await api.post('/misurazioni', form);
+      if (idInModifica) {
+        await api.put(`/misurazioni/${idInModifica}`, form);
+      } else {
+        await api.post('/misurazioni', form);
+      }
       setForm(VUOTO);
+      setIdInModifica(null);
       await ricarica();
     } catch (err) {
       setErrore(err.message);
@@ -47,8 +53,32 @@ export default function Misurazioni() {
     }
   }
 
+  function modifica(m) {
+    setForm({
+      data: m.data,
+      peso_kg: m.peso_kg ?? '',
+      braccio_cm: m.braccio_cm ?? '',
+      torace_cm: m.torace_cm ?? '',
+      vita_cm: m.vita_cm ?? '',
+      fianchi_cm: m.fianchi_cm ?? '',
+      coscia_cm: m.coscia_cm ?? '',
+      polpaccio_cm: m.polpaccio_cm ?? '',
+      note: m.note ?? '',
+    });
+    setIdInModifica(m.id);
+    setErrore('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function annullaModifica() {
+    setForm(VUOTO);
+    setIdInModifica(null);
+    setErrore('');
+  }
+
   async function elimina(id) {
     await api.del(`/misurazioni/${id}`);
+    if (id === idInModifica) annullaModifica();
     await ricarica();
   }
 
@@ -66,6 +96,7 @@ export default function Misurazioni() {
       <h1>Misurazioni</h1>
 
       <form onSubmit={invia} className="form pannello">
+        <h2>{idInModifica ? 'Modifica misurazione' : 'Nuova misurazione'}</h2>
         <label>
           Data
           <input
@@ -109,9 +140,16 @@ export default function Misurazioni() {
         </label>
 
         {errore && <p className="messaggio-errore">{errore}</p>}
-        <button type="submit" className="btn btn--primario" disabled={salvataggio}>
-          {salvataggio ? 'Salvataggio…' : 'Salva misurazione'}
-        </button>
+        <div className="form__azioni">
+          <button type="submit" className="btn btn--primario" disabled={salvataggio}>
+            {salvataggio ? 'Salvataggio…' : idInModifica ? 'Salva modifiche' : 'Salva misurazione'}
+          </button>
+          {idInModifica && (
+            <button type="button" className="btn btn--testo" onClick={annullaModifica} disabled={salvataggio}>
+              Annulla
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="pannello">
@@ -151,9 +189,14 @@ export default function Misurazioni() {
                   {m.peso_kg ? ` · ${m.peso_kg} kg` : ''}
                 </span>
               </div>
-              <button className="btn btn--testo" onClick={() => elimina(m.id)}>
-                Elimina
-              </button>
+              <div className="lista-misurazioni__azioni">
+                <button className="btn btn--testo" onClick={() => modifica(m)}>
+                  Modifica
+                </button>
+                <button className="btn btn--testo" onClick={() => elimina(m.id)}>
+                  Elimina
+                </button>
+              </div>
             </li>
           ))}
           {lista.length === 0 && <p className="testo-secondario">Nessuna misurazione ancora.</p>}
