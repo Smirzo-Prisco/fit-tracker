@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/AuthContext';
 import { formattaData, formattaSettimana } from '../lib/date';
 import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
 import { CIRCONFERENZE } from '../lib/misurazioni';
@@ -164,6 +165,7 @@ function TooltipCarico({ active, payload, label }) {
 }
 
 export default function Dashboard() {
+  const { utente } = useAuth();
   const [misurazioni, setMisurazioni] = useState([]);
   const [allenamenti, setAllenamenti] = useState([]);
   const [andamento, setAndamento] = useState([]);
@@ -259,7 +261,7 @@ export default function Dashboard() {
   return (
     <div className="pagina">
       <div className="pagina__header">
-        <h1>Ciao 👋</h1>
+        <h1>Ciao {utente?.nome} 👋</h1>
         <Link to="/profilo" className="pulsante-profilo" aria-label="Profilo">
           👤
           {notificheNonLette > 0 && <span className="pallino-placeholder" title="Hai notifiche non lette" />}
