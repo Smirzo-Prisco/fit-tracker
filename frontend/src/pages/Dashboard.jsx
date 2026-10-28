@@ -269,6 +269,14 @@ export default function Dashboard() {
     });
     return dati;
   }, [andamento]);
+  // Domain esplicito su entrambi gli estremi: con un estremo 'auto' Recharts
+  // ricalcola l'intero dominio sui propri "nice tick" (tipicamente multipli di
+  // 25/50/75 a partire da 0), ignorando il minimo fisso impostato più sotto.
+  const massimoCarico = useMemo(() => {
+    const valori = datiCarico.flatMap((d) => [d.punteggio, d.punteggioProiezione, d.oggiValore]).filter((v) => v != null);
+    const massimo = valori.length > 0 ? Math.max(...valori) : 150;
+    return Math.max(150, Math.ceil((massimo + 10) / 25) * 25);
+  }, [datiCarico]);
   const inProiezione = andamento.length > 0 && andamento[andamento.length - 1].punteggio_proiettato != null;
   const classificazione = useMemo(() => classificaAndamento(andamento, inizioSettimanaIso()), [andamento]);
 
@@ -381,7 +389,7 @@ export default function Dashboard() {
                       tickFormatter={(x) => datiCarico.find((d) => d.x === x)?.etichetta ?? ''}
                       tick={{ fontSize: 11 }}
                     />
-                    <YAxis domain={[125, 'auto']} allowDataOverflow tick={{ fontSize: 11 }} width={44} />
+                    <YAxis domain={[125, massimoCarico]} allowDataOverflow tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
                     <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
                     <Line
