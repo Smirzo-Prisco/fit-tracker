@@ -203,8 +203,17 @@ a {
 .pannello__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 8px;
+}
+
+.pannello__header h2 {
+  flex: 1;
+  min-width: 0;
+}
+
+.pannello__header select {
+  flex: 1;
 }
 
 .pulsante-profilo {
