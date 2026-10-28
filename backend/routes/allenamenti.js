@@ -158,15 +158,17 @@ router.get(
 
     // Proiezione della settimana in corso: al totale reale già fatto (rows[0], la
     // settimana più recente, se è quella corrente) si somma una stima per i giorni non
-    // ancora trascorsi, presa dall'ultimo valore reale registrato in quello stesso
-    // giorno della settimana (stesso principio di "ultimo reale noto" già usato per
-    // punteggio_previsto in GET /allenamenti) — non una media, il dato più recente. Un
-    // giorno mai allenato storicamente conta 0: è probabile sia un giorno di riposo
+    // ancora trascorsi, presa dal valore reale registrato in quello stesso giorno della
+    // SETTIMANA SCORSA (non lo storico intero: se quel giorno non era mai stato
+    // allenato da più tempo, usare un dato vecchio gonfiava la proiezione). Un giorno
+    // non allenato la settimana scorsa conta 0: è probabile sia un giorno di riposo
     // abituale, non un buco da colmare.
     let proiezioneSettimanaCorrente = null;
     if (rows.length > 0) {
-      const [[{ inizio, oggiSettimana }]] = await pool.query(
-        'SELECT DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AS inizio, WEEKDAY(CURDATE()) AS oggiSettimana'
+      const [[{ inizio, inizioScorsa, oggiSettimana }]] = await pool.query(
+        `SELECT DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AS inizio,
+                DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) + 7 DAY) AS inizioScorsa,
+                WEEKDAY(CURDATE()) AS oggiSettimana`
       );
       if (rows[0].settimana_inizio === inizio) {
         const [storicoGiorni] = await pool.query(
@@ -178,13 +180,13 @@ router.get(
            JOIN esercizi e ON e.id = ae.esercizio_id
            ${sqlJoinRiferimento1Rm('e.id')}
            ${joinGruppo}
-           WHERE a.utente_id = ? AND a.data < ?
+           WHERE a.utente_id = ? AND a.data >= ? AND a.data < ?
              AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
            GROUP BY DATE(a.data), WEEKDAY(a.data)
            ORDER BY DATE(a.data) DESC`,
           gruppoMuscolare
-            ? [req.utenteId, gruppoMuscolare, req.utenteId, inizio]
-            : [req.utenteId, req.utenteId, inizio]
+            ? [req.utenteId, gruppoMuscolare, req.utenteId, inizioScorsa, inizio]
+            : [req.utenteId, req.utenteId, inizioScorsa, inizio]
         );
         const ultimoPerGiornoSettimana = {};
         for (const r of storicoGiorni) {
