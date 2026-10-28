@@ -381,7 +381,7 @@ export default function Dashboard() {
                       tickFormatter={(x) => datiCarico.find((d) => d.x === x)?.etichetta ?? ''}
                       tick={{ fontSize: 11 }}
                     />
-                    <YAxis domain={[100, 'auto']} tick={{ fontSize: 11 }} width={44} />
+                    <YAxis domain={[125, 'auto']} allowDataOverflow tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
                     <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
                     <Line
