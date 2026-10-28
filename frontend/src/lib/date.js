@@ -5,6 +5,15 @@ export function formattaData(iso) {
   return `${giorno}/${mese}/${anno}`;
 }
 
+// Converte un DATETIME del DB ("YYYY-MM-DD HH:mm:ss") in "gg/mm/aaaa, hh:mm" — lo spazio
+// al posto della "T" fa fallire il parsing su Safari/iOS (vedi fix NaN in altre pagine),
+// da qui la sostituzione prima di new Date().
+export function formattaDataOra(datetime) {
+  if (!datetime) return '';
+  const d = new Date(datetime.replace(' ', 'T'));
+  return d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 // Etichetta di una settimana lun-dom per il grafico di andamento settimanale: la domenica
 // (ultimo giorno), non il lunedì di inizio — è il giorno in cui il risultato della
 // settimana è completo, coerente col fatto che il punto raccoglie il totale di tutta la

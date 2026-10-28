@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext.jsx';
+import AreaNotifiche from '../components/AreaNotifiche.jsx';
+import PannelloAdminNotifiche from '../components/PannelloAdminNotifiche.jsx';
 
 export default function Profilo() {
-  const { logout, aggiungiPasskey } = useAuth();
+  const { utente, logout, aggiungiPasskey } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ nome: '', altezza_cm: '', data_nascita: '' });
   const [salvataggio, setSalvataggio] = useState(false);
@@ -79,6 +81,9 @@ export default function Profilo() {
       </form>
 
       {messaggio && <p className="testo-secondario">{messaggio}</p>}
+
+      <AreaNotifiche />
+      {utente?.ruolo === 'admin' && <PannelloAdminNotifiche />}
 
       <div className="pannello">
         <h2>Sicurezza</h2>

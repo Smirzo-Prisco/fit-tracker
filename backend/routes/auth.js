@@ -10,6 +10,7 @@ const { isoUint8Array, isoBase64URL } = require('@simplewebauthn/server/helpers'
 const pool = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const challengeStore = require('../webauthnChallengeStore');
+const { creaNotifica, inviaPush } = require('../lib/notifiche');
 
 const router = express.Router();
 
@@ -39,6 +40,24 @@ async function esisteAlmenoUnUtenteConfigurato() {
      LIMIT 1`
   );
   return rows.length > 0;
+}
+
+// Avvisa chi amministra l'app quando qualcuno si registra da solo — è
+// l'unico modo per saperlo, dato che la registrazione non richiede più
+// alcuna approvazione (vedi commento sopra /setup/register-options).
+async function notificaNuovaRegistrazione(nuovoUtenteId) {
+  const [nuovoRows] = await pool.query('SELECT nome FROM utente WHERE id = ?', [nuovoUtenteId]);
+  const nome = nuovoRows[0]?.nome || 'Utente';
+  const [adminRows] = await pool.query("SELECT id FROM utente WHERE ruolo = 'admin'");
+  const adminIds = adminRows.map((r) => r.id);
+
+  await creaNotifica(pool, {
+    tipo: 'nuovo_utente',
+    titolo: 'Nuova registrazione',
+    corpo: `${nome} si è appena registrato su Fit Tracker.`,
+    destinatariIds: adminIds,
+  });
+  await inviaPush(pool, adminIds, { titolo: 'Nuova registrazione', corpo: `${nome} si è appena registrato.` });
 }
 
 async function getCredenzialiUtente(utenteId) {
@@ -77,16 +96,12 @@ router.get('/status', async (req, res) => {
   res.json({ hasUser: configurato, hasCredentials: configurato });
 });
 
-// --- Enrollment di un nuovo utente (protetto dal setup secret, ripetibile:
-// non è più un'operazione "una volta sola nella vita dell'app" — chiunque
-// conosca il secret può predisporre un nuovo utente, con lo stesso identico
-// flusso del primo) ---
+// --- Registrazione pubblica di un nuovo utente: chiunque arrivi sul sito
+// può crearsi un account con la propria passkey, con lo stesso identico
+// flusso del primo utente mai creato ---
 
 router.post('/setup/register-options', async (req, res) => {
-  const { setupSecret, nome } = req.body;
-  if (!setupSecret || setupSecret !== process.env.SETUP_SECRET) {
-    return res.status(403).json({ error: 'Setup secret non valido' });
-  }
+  const { nome } = req.body;
   // Sempre un nuovo utente: niente più riuso di una riga "incompleta" di un
   // tentativo precedente — con più persone quella logica diventerebbe
   // ambigua (di chi è la riga a metà?). Un tentativo di setup abbandonato a
@@ -112,10 +127,7 @@ router.post('/setup/register-options', async (req, res) => {
 });
 
 router.post('/setup/register-verify', async (req, res) => {
-  const { setupSecret, credential, nomeDispositivo, attemptId } = req.body;
-  if (!setupSecret || setupSecret !== process.env.SETUP_SECRET) {
-    return res.status(403).json({ error: 'Setup secret non valido' });
-  }
+  const { credential, nomeDispositivo, attemptId } = req.body;
   const pending = challengeStore.get(attemptId);
   if (!pending) {
     return res.status(400).json({ error: 'Nessun enrollment in corso (o scaduto, riprova)' });
@@ -144,6 +156,8 @@ router.post('/setup/register-verify', async (req, res) => {
     credential.response.transports,
     nomeDispositivo
   );
+
+  await notificaNuovaRegistrazione(pending.utenteId);
 
   issueSessionCookie(res, pending.utenteId);
   res.json({ ok: true });
@@ -280,9 +294,10 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/me', requireAuth, async (req, res) => {
-  const [rows] = await pool.query('SELECT id, nome, altezza_cm, data_nascita FROM utente WHERE id = ?', [
-    req.utenteId,
-  ]);
+  const [rows] = await pool.query(
+    'SELECT id, nome, altezza_cm, data_nascita, ruolo FROM utente WHERE id = ?',
+    [req.utenteId]
+  );
   res.json(rows[0] || null);
 });
 

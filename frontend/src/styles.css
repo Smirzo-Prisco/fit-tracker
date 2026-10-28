@@ -208,6 +208,7 @@ a {
 }
 
 .pulsante-profilo {
+  position: relative;
   flex-shrink: 0;
   width: 40px;
   height: 40px;
@@ -219,6 +220,13 @@ a {
   justify-content: center;
   font-size: 1.15rem;
   text-decoration: none;
+}
+
+.pulsante-profilo .pallino-placeholder {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  margin-left: 0;
 }
 
 .card-grid {
@@ -965,4 +973,40 @@ textarea:focus {
   gap: 8px;
   margin-top: 10px;
   margin-bottom: var(--spaziatura);
+}
+
+/* --- Area notifiche (Profilo) --- */
+
+.lista-notifiche {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notifica {
+  border: 1px solid var(--colore-bordo);
+  border-radius: var(--raggio);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notifica--non-letta {
+  cursor: pointer;
+  border-color: var(--colore-primario);
+}
+
+.notifica__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notifica p {
+  margin: 0;
+  font-size: 0.9rem;
 }

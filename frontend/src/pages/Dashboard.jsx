@@ -150,6 +150,7 @@ export default function Dashboard() {
   const [campoMisura, setCampoMisura] = useState('peso_kg');
   const [caricamento, setCaricamento] = useState(true);
   const [caricamentoAndamento, setCaricamentoAndamento] = useState(false);
+  const [notificheNonLette, setNotificheNonLette] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -158,6 +159,12 @@ export default function Dashboard() {
       setAllenamenti(a);
       setCaricamento(false);
     })();
+  }, []);
+
+  useEffect(() => {
+    api.get('/notifiche').then((notifiche) => {
+      setNotificheNonLette(notifiche.filter((n) => !n.letta).length);
+    });
   }, []);
 
   // Separato dal caricamento iniziale: cambiare gruppo muscolare rifiltra solo
@@ -229,6 +236,7 @@ export default function Dashboard() {
         <h1>Ciao 👋</h1>
         <Link to="/profilo" className="pulsante-profilo" aria-label="Profilo">
           👤
+          {notificheNonLette > 0 && <span className="pallino-placeholder" title="Hai notifiche non lette" />}
         </Link>
       </div>
 

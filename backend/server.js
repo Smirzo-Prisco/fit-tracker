@@ -11,6 +11,7 @@ const misurazioniRoutes = require('./routes/misurazioni');
 const allenamentiRoutes = require('./routes/allenamenti');
 const eserciziRoutes = require('./routes/esercizi');
 const schedeRoutes = require('./routes/schede');
+const notificheRoutes = require('./routes/notifiche');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/misurazioni', misurazioniRoutes);
 app.use('/api/allenamenti', allenamentiRoutes);
 app.use('/api/esercizi', eserciziRoutes);
 app.use('/api/schede', schedeRoutes);
+app.use('/api/notifiche', notificheRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

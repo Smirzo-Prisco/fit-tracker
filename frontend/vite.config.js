@@ -7,6 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // injectManifest invece del generateSW di default: serve il nostro
+      // sw.js con i listener push/notificationclick per le notifiche.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'Fit Tracker',

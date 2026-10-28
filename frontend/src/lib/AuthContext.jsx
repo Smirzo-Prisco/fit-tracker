@@ -33,10 +33,10 @@ export function AuthProvider({ children }) {
   }, [refreshStatus, refreshUtente]);
 
   const setup = useCallback(
-    async (nome, setupSecret) => {
-      const { attemptId, ...options } = await api.post('/auth/setup/register-options', { setupSecret, nome });
+    async (nome) => {
+      const { attemptId, ...options } = await api.post('/auth/setup/register-options', { nome });
       const credential = await startRegistration(options);
-      await api.post('/auth/setup/register-verify', { setupSecret, credential, attemptId });
+      await api.post('/auth/setup/register-verify', { credential, attemptId });
       await refreshStatus();
       await refreshUtente();
     },
