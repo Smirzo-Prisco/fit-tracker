@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
-import { formattaData, formattaSettimana } from '../lib/date';
+import { formattaData, formattaSettimana, formattaIntervalloSettimana } from '../lib/date';
 import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
 import { CIRCONFERENZE } from '../lib/misurazioni';
 import { formattaPunteggio } from '../lib/punteggioCarico';
@@ -212,7 +212,7 @@ export default function Dashboard() {
     const dati = andamento.map((s, i, arr) => {
       const inProiezione = i === arr.length - 1 && s.punteggio_proiettato != null;
       return {
-        settimana: formattaSettimana(s.settimana_inizio),
+        settimana: i === arr.length - 1 ? formattaIntervalloSettimana(s.settimana_inizio) : formattaSettimana(s.settimana_inizio),
         punteggio: inProiezione ? null : s.punteggio_totale,
         punteggioProiezione: inProiezione ? s.punteggio_proiettato : null,
       };
@@ -326,7 +326,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={180}>
                   <LineChart data={datiCarico}>
                     <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
-                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
+                    <YAxis domain={[100, 'auto']} tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
                     <Line
                       type="monotone"

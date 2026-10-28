@@ -27,3 +27,15 @@ export function formattaSettimana(isoInizio) {
   const mese = String(fine.getMonth() + 1).padStart(2, '0');
   return `${giorno}/${mese}`;
 }
+
+// Come formattaSettimana, ma mostra l'intervallo completo (inizio-fine) invece della sola
+// fine — usata per la settimana in corso nel grafico di carico, dove il punto non
+// rappresenta un singolo giorno concluso ma un intervallo ancora aperto tra le due date.
+export function formattaIntervalloSettimana(isoInizio) {
+  if (!isoInizio) return '';
+  const inizio = new Date(`${isoInizio}T00:00:00`);
+  const fine = new Date(inizio);
+  fine.setDate(fine.getDate() + 6);
+  const fmt = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  return `${fmt(inizio)}-${fmt(fine)}`;
+}
