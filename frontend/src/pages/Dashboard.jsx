@@ -215,10 +215,11 @@ export default function Dashboard() {
   // Asse X a scala temporale reale (timestamp), non più un punto per settimana a distanza
   // fissa: ogni settimana conclusa è un punto sulla sua domenica (fine settimana, quando il
   // totale è definitivo); la settimana in corso invece è un punto sulla data di OGGI (dove il
-  // totale reale finora è davvero valido), con la proiezione disegnata tratteggiata da lì
-  // fino alla domenica futura di quella settimana. Il punto "oggi" (oggiValore) è una serie
-  // a parte, mai collegata dalla linea del progresso (punteggio): è solo un'indicazione di
-  // dove ti trovi ora, non un dato storico confermato come gli altri punti della linea.
+  // totale reale finora è davvero valido). La linea piena arriva fino a oggi, poi prosegue
+  // tratteggiata (proiezione) fino alla domenica futura — punteggio e punteggioProiezione
+  // condividono quindi il valore di oggi, è il punto di raccordo tra le due. Il pallino
+  // visibile su quel punto arriva da una serie indipendente (oggiValore, senza alcun
+  // tratto): è solo un marcatore sopra il grafico, non un vertice delle linee.
   const datiCarico = useMemo(() => {
     const oggi = new Date();
     oggi.setHours(0, 0, 0, 0);
@@ -237,7 +238,7 @@ export default function Dashboard() {
         dati.push({
           x: oggi.getTime(),
           etichetta: formattaDataBreve(oggi),
-          punteggio: null,
+          punteggio: s.punteggio_totale,
           punteggioProiezione: inProiezione ? s.punteggio_totale : null,
           oggiValore: s.punteggio_totale,
           oggi: true,
