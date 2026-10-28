@@ -89,16 +89,32 @@ router.get(
       if (realeEs != null) ultimoRealeNoto[row.esercizio_id] = realeEs;
     }
 
-    res.json(
-      rows.map((a) => {
-        const agg = perAllenamento[a.id];
-        return {
-          ...a,
-          punteggio_reale: agg && agg.realeCount > 0 ? Math.round(agg.realeSum * 100) / 100 : null,
-          punteggio_previsto: agg && agg.proiettatoCount > 0 ? Math.round(agg.proiettatoSum * 100) / 100 : null,
-        };
-      })
-    );
+    const risultato = rows.map((a) => {
+      const agg = perAllenamento[a.id];
+      return {
+        ...a,
+        punteggio_reale: agg && agg.realeCount > 0 ? Math.round(agg.realeSum * 100) / 100 : null,
+        punteggio_previsto: agg && agg.proiettatoCount > 0 ? Math.round(agg.proiettatoSum * 100) / 100 : null,
+        delta_precedente: null,
+      };
+    });
+
+    // Differenza vs l'allenamento precedente con la stessa scheda, stesso principio di
+    // "allenamento_precedente" in GET /:id (confronto sempre con l'ultimo REALE noto per
+    // quella scheda, mai con uno ancora previsto/pianificato): un giro in ordine
+    // cronologico, come per ultimoRealeNoto sopra.
+    const ultimoRealePerScheda = {};
+    for (const a of [...risultato].sort((x, y) => x.data.localeCompare(y.data) || x.id - y.id)) {
+      if (!a.scheda_id) continue;
+      const precedente = ultimoRealePerScheda[a.scheda_id];
+      const valoreCorrente = a.punteggio_reale ?? a.punteggio_previsto;
+      if (precedente != null && valoreCorrente != null) {
+        a.delta_precedente = Math.round((valoreCorrente - precedente) * 100) / 100;
+      }
+      if (a.punteggio_reale != null) ultimoRealePerScheda[a.scheda_id] = a.punteggio_reale;
+    }
+
+    res.json(risultato);
   })
 );
 

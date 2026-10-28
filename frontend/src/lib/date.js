@@ -28,6 +28,16 @@ export function formattaSettimana(isoInizio) {
   return `${giorno}/${mese}`;
 }
 
+// Lunedì (ISO "YYYY-MM-DD") della settimana a cui appartiene una data — stessa convenzione
+// lun-dom usata per settimana_inizio nel backend (WEEKDAY: 0=lun...6=dom). Usata per
+// raggruppare per settimana elenchi già ordinati per data, lato client.
+export function inizioSettimanaDi(isoData) {
+  const d = new Date(`${isoData}T00:00:00`);
+  const giorno = (d.getDay() + 6) % 7; // lunedì = 0
+  d.setDate(d.getDate() - giorno);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Come formattaSettimana, ma mostra l'intervallo completo (inizio-fine) invece della sola
 // fine — usata per la settimana in corso nel grafico di carico, dove il punto non
 // rappresenta un singolo giorno concluso ma un intervallo ancora aperto tra le due date.

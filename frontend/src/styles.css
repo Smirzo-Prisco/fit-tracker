@@ -479,6 +479,18 @@ textarea:focus {
   gap: 4px;
 }
 
+.gruppo-settimana {
+  margin-bottom: 20px;
+}
+
+.gruppo-settimana__titolo {
+  color: var(--colore-testo-secondario);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+}
+
 .lista-allenamenti__riga {
   display: flex;
   align-items: center;
