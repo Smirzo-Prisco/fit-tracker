@@ -487,14 +487,25 @@ export default function Dashboard() {
         <div className="pannello">
           <div className="pannello__header">
             <h2>Andamento misure</h2>
-            <select value={campoMisura} onChange={(e) => setCampoMisura(e.target.value)}>
-              <option value="peso_kg">Peso</option>
-              {CIRCONFERENZE.map((c) => (
-                <option key={c.chiave} value={c.chiave}>
-                  {c.etichetta}
-                </option>
-              ))}
-            </select>
+          </div>
+          <div className="filtri-gruppo">
+            <button
+              type="button"
+              className={`filtro-gruppo${campoMisura === 'peso_kg' ? ' filtro-gruppo--attivo' : ''}`}
+              onClick={() => setCampoMisura('peso_kg')}
+            >
+              Peso
+            </button>
+            {CIRCONFERENZE.map((c) => (
+              <button
+                key={c.chiave}
+                type="button"
+                className={`filtro-gruppo${campoMisura === c.chiave ? ' filtro-gruppo--attivo' : ''}`}
+                onClick={() => setCampoMisura(c.chiave)}
+              >
+                {c.etichetta}
+              </button>
+            ))}
           </div>
           {datiMisura.length > 1 ? (
             <ResponsiveContainer width="100%" height={220}>

@@ -155,14 +155,25 @@ export default function Misurazioni() {
       <div className="pannello">
         <div className="pannello__header">
           <h2>Andamento</h2>
-          <select value={campoGrafico} onChange={(e) => setCampoGrafico(e.target.value)}>
-            <option value="peso_kg">Peso</option>
-            {CIRCONFERENZE.map((c) => (
-              <option key={c.chiave} value={c.chiave}>
-                {c.etichetta}
-              </option>
-            ))}
-          </select>
+        </div>
+        <div className="filtri-gruppo">
+          <button
+            type="button"
+            className={`filtro-gruppo${campoGrafico === 'peso_kg' ? ' filtro-gruppo--attivo' : ''}`}
+            onClick={() => setCampoGrafico('peso_kg')}
+          >
+            Peso
+          </button>
+          {CIRCONFERENZE.map((c) => (
+            <button
+              key={c.chiave}
+              type="button"
+              className={`filtro-gruppo${campoGrafico === c.chiave ? ' filtro-gruppo--attivo' : ''}`}
+              onClick={() => setCampoGrafico(c.chiave)}
+            >
+              {c.etichetta}
+            </button>
+          ))}
         </div>
         {datiGrafico.length > 1 ? (
           <ResponsiveContainer width="100%" height={200}>
