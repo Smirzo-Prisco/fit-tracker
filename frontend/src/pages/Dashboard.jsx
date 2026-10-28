@@ -215,11 +215,6 @@ export default function Dashboard() {
         settimana: formattaSettimana(s.settimana_inizio),
         punteggio: inProiezione ? null : s.punteggio_totale,
         punteggioProiezione: inProiezione ? s.punteggio_proiettato : null,
-        // Punto "oggi": il totale reale finora della settimana corrente, sempre
-        // visibile — a differenza di "punteggio" sopra, che viene azzerato
-        // apposta quando c'è una proiezione per non confonderlo col dato finale
-        // stimato (vedi commento sotto).
-        puntoOggi: i === arr.length - 1 ? s.punteggio_totale : null,
       };
     });
     if (dati.length >= 2 && dati[dati.length - 1].punteggioProiezione != null) {
@@ -333,7 +328,18 @@ export default function Dashboard() {
                     <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
                     <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
-                    <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="punteggio"
+                      name="Punteggio"
+                      stroke="#e5484d"
+                      strokeWidth={2}
+                      dot={({ cx, cy, index, payload }) =>
+                        index === datiCarico.length - 1 && payload.punteggio != null ? (
+                          <circle key="oggi" cx={cx} cy={cy} r={4} fill="#e5484d" stroke="#141a22" strokeWidth={2} />
+                        ) : null
+                      }
+                    />
                     <Line
                       type="monotone"
                       dataKey="punteggioProiezione"
@@ -341,17 +347,13 @@ export default function Dashboard() {
                       stroke="#e5484d"
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      dot={{ r: 3 }}
-                    />
-                    {/* Punto "oggi": marcatore sempre visibile sul totale reale finora
-                        della settimana corrente, proiezione attiva o no — senza linea
-                        propria, solo il pallino. */}
-                    <Line
-                      dataKey="puntoOggi"
-                      name="Oggi"
-                      stroke="none"
-                      isAnimationActive={false}
-                      dot={{ r: 4, fill: '#e5484d', stroke: '#141a22', strokeWidth: 2 }}
+                      dot={({ cx, cy, index, payload }) =>
+                        payload.punteggioProiezione == null ? null : index === datiCarico.length - 1 ? (
+                          <circle key="oggi-proiezione" cx={cx} cy={cy} r={4} fill="#e5484d" stroke="#141a22" strokeWidth={2} />
+                        ) : (
+                          <circle key={`dot-proiezione-${index}`} cx={cx} cy={cy} r={3} fill="#e5484d" />
+                        )
+                      }
                     />
                   </LineChart>
                 </ResponsiveContainer>
