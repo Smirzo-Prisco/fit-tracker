@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
-import { formattaData, formattaSettimana, formattaIntervalloSettimana } from '../lib/date';
+import { formattaData, formattaDataBreve } from '../lib/date';
 import { GRUPPI_MUSCOLARI } from '../lib/gruppiMuscolari';
 import { CIRCONFERENZE } from '../lib/misurazioni';
 import { formattaPunteggio } from '../lib/punteggioCarico';
@@ -146,17 +146,16 @@ function classificaAndamento(settimane, settimanaCorrenteIso) {
 // Tooltip custom: quello di default di recharts ha sfondo bianco ed etichetta
 // della data in grigio chiaro, illeggibile sul tema scuro dell'app (stesso
 // problema già risolto in Esercizi.jsx con lo stesso approccio).
-function TooltipCarico({ active, payload, label }) {
+function TooltipCarico({ active, payload }) {
   if (!active || !payload?.length) return null;
-  // "puntoOggi" ripete lo stesso valore di "punteggio"/"punteggioProiezione" sul
-  // punto corrente solo per disegnare il pallino: va ignorato qui per non mostrare
-  // una riga duplicata nel tooltip.
+  // Sul punto "oggi" della settimana in corso punteggio e punteggioProiezione
+  // coincidono (è il bordo tra reale e stima): mostra comunque solo una riga.
   const voce = payload.find((p) => p.dataKey === 'punteggioProiezione') ?? payload.find((p) => p.dataKey === 'punteggio');
   if (!voce) return null;
-  const etichetta = voce.dataKey === 'punteggioProiezione' ? 'Proiezione' : 'Punteggio';
+  const etichetta = voce.dataKey === 'punteggioProiezione' && !voce.payload.oggi ? 'Proiezione' : 'Punteggio';
   return (
     <div className="tooltip-grafico">
-      <p className="tooltip-grafico__data">{label}</p>
+      <p className="tooltip-grafico__data">{voce.payload.etichetta}</p>
       <p>
         {etichetta}: <strong>{formattaPunteggio(voce.value)}</strong>
       </p>
@@ -201,25 +200,59 @@ export default function Dashboard() {
       .finally(() => setCaricamentoAndamento(false));
   }, [gruppoSelezionato]);
 
-  // Per la settimana in corso usa la proiezione (reale finora + stima dei giorni
-  // mancanti sullo stesso giorno della settimana) invece del solo totale parziale, che
-  // sembrerebbe sempre un calo rispetto a una settimana conclusa. Il punto proiettato va
-  // su una serie separata (punteggioProiezione) disegnata tratteggiata, per non far
-  // sembrare una stima un dato reale già confermato; punteggioProiezione riprende anche
-  // il valore del punto precedente così la linea tratteggiata si aggancia a quella piena
-  // invece di partire staccata.
+  // Asse X a scala temporale reale (timestamp), non più un punto per settimana a distanza
+  // fissa: ogni settimana conclusa è un punto sulla sua domenica (fine settimana, quando il
+  // totale è definitivo); la settimana in corso invece è un punto sulla data di OGGI (dove il
+  // totale reale finora è davvero valido), con la proiezione disegnata tratteggiata da lì
+  // fino alla domenica futura di quella settimana — così il pallino "oggi" cade visivamente
+  // nel punto giusto tra inizio e fine della settimana in corso, non incollato a un'estremità.
   const datiCarico = useMemo(() => {
-    const dati = andamento.map((s, i, arr) => {
-      const inProiezione = i === arr.length - 1 && s.punteggio_proiettato != null;
-      return {
-        settimana: i === arr.length - 1 ? formattaIntervalloSettimana(s.settimana_inizio) : formattaSettimana(s.settimana_inizio),
-        punteggio: inProiezione ? null : s.punteggio_totale,
-        punteggioProiezione: inProiezione ? s.punteggio_proiettato : null,
-      };
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    const settimanaCorrenteIso = inizioSettimanaIso();
+
+    const dati = [];
+    andamento.forEach((s, i, arr) => {
+      const inizio = new Date(`${s.settimana_inizio}T00:00:00`);
+      const fine = new Date(inizio);
+      fine.setDate(fine.getDate() + 6);
+      const isUltima = i === arr.length - 1;
+      const isSettimanaCorrente = isUltima && s.settimana_inizio === settimanaCorrenteIso;
+      const inProiezione = isSettimanaCorrente && s.punteggio_proiettato != null;
+
+      if (inProiezione) {
+        dati.push({
+          x: oggi.getTime(),
+          etichetta: formattaDataBreve(oggi),
+          punteggio: s.punteggio_totale,
+          punteggioProiezione: s.punteggio_totale,
+          oggi: true,
+        });
+        dati.push({
+          x: fine.getTime(),
+          etichetta: formattaDataBreve(fine),
+          punteggio: null,
+          punteggioProiezione: s.punteggio_proiettato,
+          oggi: false,
+        });
+      } else if (isSettimanaCorrente) {
+        dati.push({
+          x: oggi.getTime(),
+          etichetta: formattaDataBreve(oggi),
+          punteggio: s.punteggio_totale,
+          punteggioProiezione: null,
+          oggi: true,
+        });
+      } else {
+        dati.push({
+          x: fine.getTime(),
+          etichetta: formattaDataBreve(fine),
+          punteggio: s.punteggio_totale,
+          punteggioProiezione: null,
+          oggi: false,
+        });
+      }
     });
-    if (dati.length >= 2 && dati[dati.length - 1].punteggioProiezione != null) {
-      dati[dati.length - 2].punteggioProiezione = dati[dati.length - 2].punteggio;
-    }
     return dati;
   }, [andamento]);
   const inProiezione = andamento.length > 0 && andamento[andamento.length - 1].punteggio_proiettato != null;
@@ -325,7 +358,15 @@ export default function Dashboard() {
               <>
                 <ResponsiveContainer width="100%" height={180}>
                   <LineChart data={datiCarico}>
-                    <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
+                    <XAxis
+                      dataKey="x"
+                      type="number"
+                      scale="time"
+                      domain={['dataMin', 'dataMax']}
+                      ticks={datiCarico.map((d) => d.x)}
+                      tickFormatter={(x) => datiCarico.find((d) => d.x === x)?.etichetta ?? ''}
+                      tick={{ fontSize: 11 }}
+                    />
                     <YAxis domain={[100, 'auto']} tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
                     <Line
@@ -334,8 +375,8 @@ export default function Dashboard() {
                       name="Punteggio"
                       stroke="#e5484d"
                       strokeWidth={2}
-                      dot={({ cx, cy, index, payload }) =>
-                        index === datiCarico.length - 1 && payload.punteggio != null ? (
+                      dot={({ cx, cy, payload }) =>
+                        payload.oggi && payload.punteggio != null ? (
                           <circle key="oggi" cx={cx} cy={cy} r={4} fill="#e5484d" stroke="#141a22" strokeWidth={2} />
                         ) : null
                       }
@@ -347,12 +388,10 @@ export default function Dashboard() {
                       stroke="#e5484d"
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      dot={({ cx, cy, index, payload }) =>
-                        payload.punteggioProiezione == null ? null : index === datiCarico.length - 1 ? (
-                          <circle key="oggi-proiezione" cx={cx} cy={cy} r={4} fill="#e5484d" stroke="#141a22" strokeWidth={2} />
-                        ) : (
-                          <circle key={`dot-proiezione-${index}`} cx={cx} cy={cy} r={3} fill="#e5484d" />
-                        )
+                      dot={({ cx, cy, payload }) =>
+                        payload.punteggioProiezione != null && !payload.oggi ? (
+                          <circle key="fine-proiezione" cx={cx} cy={cy} r={3} fill="#e5484d" />
+                        ) : null
                       }
                     />
                   </LineChart>

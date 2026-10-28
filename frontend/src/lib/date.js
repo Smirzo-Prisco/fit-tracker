@@ -14,17 +14,10 @@ export function formattaDataOra(datetime) {
   return d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// Etichetta di una settimana lun-dom per il grafico di andamento settimanale: la domenica
-// (ultimo giorno), non il lunedì di inizio — è il giorno in cui il risultato della
-// settimana è completo, coerente col fatto che il punto raccoglie il totale di tutta la
-// settimana. Riceve il lunedì "YYYY-MM-DD" (settimana_inizio) e restituisce gg/mm (senza
-// anno, per restare compatta sull'asse del grafico).
-export function formattaSettimana(isoInizio) {
-  if (!isoInizio) return '';
-  const fine = new Date(`${isoInizio}T00:00:00`);
-  fine.setDate(fine.getDate() + 6);
-  const giorno = String(fine.getDate()).padStart(2, '0');
-  const mese = String(fine.getMonth() + 1).padStart(2, '0');
+// Data (oggetto Date) in "gg/mm", senza anno — per etichette compatte su assi di grafici.
+export function formattaDataBreve(date) {
+  const giorno = String(date.getDate()).padStart(2, '0');
+  const mese = String(date.getMonth() + 1).padStart(2, '0');
   return `${giorno}/${mese}`;
 }
 
@@ -38,9 +31,8 @@ export function inizioSettimanaDi(isoData) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Come formattaSettimana, ma mostra l'intervallo completo (inizio-fine) invece della sola
-// fine — usata per la settimana in corso nel grafico di carico, dove il punto non
-// rappresenta un singolo giorno concluso ma un intervallo ancora aperto tra le due date.
+// Intervallo di una settimana lun-dom in "gg/mm-gg/mm" (senza anno) — usata per
+// raggruppare l'elenco allenamenti per settimana. Riceve il lunedì "YYYY-MM-DD".
 export function formattaIntervalloSettimana(isoInizio) {
   if (!isoInizio) return '';
   const inizio = new Date(`${isoInizio}T00:00:00`);
