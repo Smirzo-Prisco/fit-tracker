@@ -20,6 +20,9 @@ export async function abilitaPush() {
 
   const registration = await navigator.serviceWorker.ready;
   const { chiave } = await api.get('/notifiche/vapid-public-key');
+  if (!chiave) {
+    throw new Error('Notifiche non ancora configurate sul server');
+  }
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: base64UrlToUint8Array(chiave),

@@ -27,7 +27,7 @@ router.post('/:id/letta', requireAuth, async (req, res) => {
 });
 
 router.get('/vapid-public-key', requireAuth, (req, res) => {
-  res.json({ chiave: process.env.VAPID_PUBLIC_KEY });
+  res.json({ chiave: process.env.VAPID_PUBLIC_KEY || null });
 });
 
 router.post('/push-subscription', requireAuth, async (req, res) => {

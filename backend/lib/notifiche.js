@@ -1,4 +1,4 @@
-const webpush = require('./webpush');
+const { webpush, configurato } = require('./webpush');
 
 // Unico punto di verità per creare una notifica e il suo fan-out: usato sia
 // da routes/notifiche.js (pubblicazione admin) sia da routes/auth.js (avviso
@@ -26,7 +26,7 @@ async function creaNotifica(pool, { tipo, titolo, corpo, creatoDa, destinatariId
 // scaduta/revocata risponde 404 o 410: va rimossa, altrimenti continueremmo a
 // tentare invii destinati a cadere per sempre.
 async function inviaPush(pool, destinatariIds, payload) {
-  if (destinatariIds.length === 0) return;
+  if (!configurato || destinatariIds.length === 0) return;
 
   const [subs] = await pool.query(
     `SELECT * FROM push_subscriptions WHERE utente_id IN (${destinatariIds.map(() => '?').join(', ')})`,
