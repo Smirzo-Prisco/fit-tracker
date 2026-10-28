@@ -214,12 +214,14 @@ export default function Dashboard() {
 
   // Asse X a scala temporale reale (timestamp), non più un punto per settimana a distanza
   // fissa: ogni settimana conclusa è un punto sulla sua domenica (fine settimana, quando il
-  // totale è definitivo); la settimana in corso invece è un punto sulla data di OGGI (dove il
-  // totale reale finora è davvero valido). La linea piena arriva fino a oggi, poi prosegue
-  // tratteggiata (proiezione) fino alla domenica futura — punteggio e punteggioProiezione
-  // condividono quindi il valore di oggi, è il punto di raccordo tra le due. Il pallino
-  // visibile su quel punto arriva da una serie indipendente (oggiValore, senza alcun
-  // tratto): è solo un marcatore sopra il grafico, non un vertice delle linee.
+  // totale è definitivo); la settimana in corso invece è un punto sulla data di OGGI. La
+  // linea piena e quella tratteggiata (proiezione) ignorano il totale parziale reale di
+  // oggi — lo terrebbe artificialmente basso, facendo sembrare un calo quello che è solo un
+  // confronto tra una settimana completa e una a metà — e restano invece "ferme" all'ultimo
+  // punteggio confermato (quello della settimana precedente) finché non parte la stima verso
+  // il punteggio di fine proiezione. Il totale reale di oggi (oggiValore) resta comunque
+  // visibile, ma solo come pallino su una serie indipendente, senza alcun tratto: un
+  // marcatore sopra il grafico, non un vertice delle linee.
   const datiCarico = useMemo(() => {
     const oggi = new Date();
     oggi.setHours(0, 0, 0, 0);
@@ -235,11 +237,12 @@ export default function Dashboard() {
       const inProiezione = isSettimanaCorrente && s.punteggio_proiettato != null;
 
       if (isSettimanaCorrente) {
+        const ultimoConfermato = dati.length > 0 ? dati[dati.length - 1].punteggio : s.punteggio_totale;
         dati.push({
           x: oggi.getTime(),
           etichetta: formattaDataBreve(oggi),
-          punteggio: s.punteggio_totale,
-          punteggioProiezione: inProiezione ? s.punteggio_totale : null,
+          punteggio: ultimoConfermato,
+          punteggioProiezione: inProiezione ? ultimoConfermato : null,
           oggiValore: s.punteggio_totale,
           oggi: true,
         });
