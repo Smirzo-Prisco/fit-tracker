@@ -321,7 +321,26 @@ export default function Dashboard() {
                     <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
                     <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
-                    <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="punteggio"
+                      name="Punteggio"
+                      stroke="#e5484d"
+                      strokeWidth={2}
+                      dot={({ cx, cy, index, payload }) =>
+                        index === datiCarico.length - 1 && payload.punteggio != null ? (
+                          <circle
+                            key="punto-oggi"
+                            cx={cx}
+                            cy={cy}
+                            r={4}
+                            fill="#e5484d"
+                            stroke="#141a22"
+                            strokeWidth={2}
+                          />
+                        ) : null
+                      }
+                    />
                     <Line
                       type="monotone"
                       dataKey="punteggioProiezione"
