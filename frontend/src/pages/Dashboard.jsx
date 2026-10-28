@@ -148,16 +148,28 @@ function classificaAndamento(settimane, settimanaCorrenteIso) {
 // problema già risolto in Esercizi.jsx con lo stesso approccio).
 function TooltipCarico({ active, payload }) {
   if (!active || !payload?.length) return null;
-  // Sul punto "oggi" della settimana in corso punteggio e punteggioProiezione
-  // coincidono (è il bordo tra reale e stima): mostra comunque solo una riga.
-  const voce = payload.find((p) => p.dataKey === 'punteggioProiezione') ?? payload.find((p) => p.dataKey === 'punteggio');
-  if (!voce) return null;
-  const etichetta = voce.dataKey === 'punteggioProiezione' && !voce.payload.oggi ? 'Proiezione' : 'Punteggio';
+  // Legge direttamente dalla riga di dato (condivisa da tutte le serie su quel punto)
+  // invece che dall'entry del payload: il pallino "oggi" è ormai una serie a parte, non
+  // collegata alla linea del progresso, quindi non è detto compaia per prima nell'array.
+  const riga = payload[0]?.payload;
+  if (!riga) return null;
+  if (riga.oggi) {
+    return (
+      <div className="tooltip-grafico">
+        <p className="tooltip-grafico__data">{riga.etichetta}</p>
+        <p>
+          Punteggio: <strong>{formattaPunteggio(riga.oggiValore)}</strong>
+        </p>
+      </div>
+    );
+  }
+  const valore = riga.punteggioProiezione ?? riga.punteggio;
+  const etichettaValore = riga.punteggioProiezione != null ? 'Proiezione' : 'Punteggio';
   return (
     <div className="tooltip-grafico">
-      <p className="tooltip-grafico__data">{voce.payload.etichetta}</p>
+      <p className="tooltip-grafico__data">{riga.etichetta}</p>
       <p>
-        {etichetta}: <strong>{formattaPunteggio(voce.value)}</strong>
+        {etichettaValore}: <strong>{formattaPunteggio(valore)}</strong>
       </p>
     </div>
   );
@@ -204,8 +216,9 @@ export default function Dashboard() {
   // fissa: ogni settimana conclusa è un punto sulla sua domenica (fine settimana, quando il
   // totale è definitivo); la settimana in corso invece è un punto sulla data di OGGI (dove il
   // totale reale finora è davvero valido), con la proiezione disegnata tratteggiata da lì
-  // fino alla domenica futura di quella settimana — così il pallino "oggi" cade visivamente
-  // nel punto giusto tra inizio e fine della settimana in corso, non incollato a un'estremità.
+  // fino alla domenica futura di quella settimana. Il punto "oggi" (oggiValore) è una serie
+  // a parte, mai collegata dalla linea del progresso (punteggio): è solo un'indicazione di
+  // dove ti trovi ora, non un dato storico confermato come gli altri punti della linea.
   const datiCarico = useMemo(() => {
     const oggi = new Date();
     oggi.setHours(0, 0, 0, 0);
@@ -220,35 +233,32 @@ export default function Dashboard() {
       const isSettimanaCorrente = isUltima && s.settimana_inizio === settimanaCorrenteIso;
       const inProiezione = isSettimanaCorrente && s.punteggio_proiettato != null;
 
-      if (inProiezione) {
+      if (isSettimanaCorrente) {
         dati.push({
           x: oggi.getTime(),
           etichetta: formattaDataBreve(oggi),
-          punteggio: s.punteggio_totale,
-          punteggioProiezione: s.punteggio_totale,
-          oggi: true,
-        });
-        dati.push({
-          x: fine.getTime(),
-          etichetta: formattaDataBreve(fine),
           punteggio: null,
-          punteggioProiezione: s.punteggio_proiettato,
-          oggi: false,
-        });
-      } else if (isSettimanaCorrente) {
-        dati.push({
-          x: oggi.getTime(),
-          etichetta: formattaDataBreve(oggi),
-          punteggio: s.punteggio_totale,
-          punteggioProiezione: null,
+          punteggioProiezione: inProiezione ? s.punteggio_totale : null,
+          oggiValore: s.punteggio_totale,
           oggi: true,
         });
+        if (inProiezione) {
+          dati.push({
+            x: fine.getTime(),
+            etichetta: formattaDataBreve(fine),
+            punteggio: null,
+            punteggioProiezione: s.punteggio_proiettato,
+            oggiValore: null,
+            oggi: false,
+          });
+        }
       } else {
         dati.push({
           x: fine.getTime(),
           etichetta: formattaDataBreve(fine),
           punteggio: s.punteggio_totale,
           punteggioProiezione: null,
+          oggiValore: null,
           oggi: false,
         });
       }
@@ -369,18 +379,7 @@ export default function Dashboard() {
                     />
                     <YAxis domain={[100, 'auto']} tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
-                    <Line
-                      type="monotone"
-                      dataKey="punteggio"
-                      name="Punteggio"
-                      stroke="#e5484d"
-                      strokeWidth={2}
-                      dot={({ cx, cy, payload }) =>
-                        payload.oggi && payload.punteggio != null ? (
-                          <circle key="oggi" cx={cx} cy={cy} r={4} fill="#e5484d" stroke="#141a22" strokeWidth={2} />
-                        ) : null
-                      }
-                    />
+                    <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
                     <Line
                       type="monotone"
                       dataKey="punteggioProiezione"
@@ -391,6 +390,20 @@ export default function Dashboard() {
                       dot={({ cx, cy, payload }) =>
                         payload.punteggioProiezione != null && !payload.oggi ? (
                           <circle key="fine-proiezione" cx={cx} cy={cy} r={3} fill="#e5484d" />
+                        ) : null
+                      }
+                    />
+                    {/* Pallino "oggi": solo un'indicazione di dove ti trovi ora, mai
+                        collegato alla linea del progresso — per questo è una serie a
+                        parte senza alcun tratto (stroke="none"), solo il marcatore. */}
+                    <Line
+                      dataKey="oggiValore"
+                      name="Oggi"
+                      stroke="none"
+                      isAnimationActive={false}
+                      dot={({ cx, cy, payload }) =>
+                        payload.oggiValore != null ? (
+                          <circle key="oggi" cx={cx} cy={cy} r={4} fill="#e5484d" stroke="#141a22" strokeWidth={2} />
                         ) : null
                       }
                     />
