@@ -142,6 +142,22 @@ function classificaAndamento(settimane, settimanaCorrenteIso) {
   return { ...voce, azione: azione ?? voce.azione, deltaPercento, deltaRpe, deltaPmrPercento };
 }
 
+// Tooltip custom: quello di default di recharts ha sfondo bianco ed etichetta
+// della data in grigio chiaro, illeggibile sul tema scuro dell'app (stesso
+// problema già risolto in Esercizi.jsx con lo stesso approccio).
+function TooltipCarico({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const valore = payload[0].value;
+  return (
+    <div className="tooltip-grafico">
+      <p className="tooltip-grafico__data">{label}</p>
+      <p>
+        Punteggio: <strong>{formattaPunteggio(valore)}</strong>
+      </p>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [misurazioni, setMisurazioni] = useState([]);
   const [allenamenti, setAllenamenti] = useState([]);
@@ -258,7 +274,7 @@ export default function Dashboard() {
 
       <div className="pannello">
         <div className="pannello__header">
-          <h2>Monitoraggio carico settimanale</h2>
+          <h2>Carico settimanale</h2>
           <select value={gruppoSelezionato} onChange={(e) => setGruppoSelezionato(e.target.value)}>
             <option value="">Tutti i gruppi</option>
             {GRUPPI_MUSCOLARI.map((g) => (
@@ -304,7 +320,7 @@ export default function Dashboard() {
                   <LineChart data={datiCarico}>
                     <XAxis dataKey="settimana" tick={{ fontSize: 11 }} />
                     <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={44} />
-                    <Tooltip formatter={(valore) => formattaPunteggio(valore)} />
+                    <Tooltip content={<TooltipCarico />} />
                     <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
                     <Line
                       type="monotone"
