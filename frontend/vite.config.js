@@ -21,9 +21,14 @@ export default defineConfig({
         background_color: '#0b0f14',
         display: 'standalone',
         start_url: '/',
+        // nginx serve questi file con 30 giorni di cache (location ~* \.(png|...)$),
+        // e i nomi file sono fissi (non content-hashed come i bundle JS/CSS): senza
+        // una query string che cambia, i browser continuano a servire l'icona vecchia
+        // dalla cache per settimane anche dopo un deploy riuscito. Incrementare ?v=
+        // ogni volta che l'icona viene aggiornata.
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png?v=2', sizes: '512x512', type: 'image/png' },
         ],
       },
     }),
