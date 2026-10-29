@@ -271,11 +271,21 @@ export default function Dashboard() {
   }, [andamento]);
   // Domain esplicito su entrambi gli estremi: con un estremo 'auto' Recharts
   // ricalcola l'intero dominio sui propri "nice tick" (tipicamente multipli di
-  // 25/50/75 a partire da 0), ignorando il minimo fisso impostato più sotto.
+  // 25/50/75 a partire da 0), ignorando i limiti fissi impostati qui sotto.
   const massimoCarico = useMemo(() => {
     const valori = datiCarico.flatMap((d) => [d.punteggio, d.punteggioProiezione, d.oggiValore]).filter((v) => v != null);
     const massimo = valori.length > 0 ? Math.max(...valori) : 150;
     return Math.max(150, Math.ceil((massimo + 10) / 25) * 25);
+  }, [datiCarico]);
+  // 125 va bene come minimo per il punteggio totale (sempre alto), ma filtrando per
+  // singolo gruppo muscolare i punteggi sono molto più bassi: con un minimo fisso a
+  // 125 e allowDataOverflow, quei punti finiscono fuori dominio e la linea sparisce.
+  // Il minimo quindi si abbassa in base ai dati, 125 resta solo il tetto massimo.
+  const minimoCarico = useMemo(() => {
+    const valori = datiCarico.flatMap((d) => [d.punteggio, d.punteggioProiezione, d.oggiValore]).filter((v) => v != null);
+    if (valori.length === 0) return 0;
+    const minimo = Math.min(...valori);
+    return Math.max(0, Math.min(125, Math.floor((minimo - 10) / 25) * 25));
   }, [datiCarico]);
   const inProiezione = andamento.length > 0 && andamento[andamento.length - 1].punteggio_proiettato != null;
   const classificazione = useMemo(() => classificaAndamento(andamento, inizioSettimanaIso()), [andamento]);
@@ -389,7 +399,7 @@ export default function Dashboard() {
                       tickFormatter={(x) => datiCarico.find((d) => d.x === x)?.etichetta ?? ''}
                       tick={{ fontSize: 11 }}
                     />
-                    <YAxis domain={[125, massimoCarico]} allowDataOverflow tick={{ fontSize: 11 }} width={44} />
+                    <YAxis domain={[minimoCarico, massimoCarico]} allowDataOverflow tick={{ fontSize: 11 }} width={44} />
                     <Tooltip content={<TooltipCarico />} />
                     <Line type="monotone" dataKey="punteggio" name="Punteggio" stroke="#e5484d" strokeWidth={2} dot={false} />
                     <Line
