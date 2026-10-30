@@ -160,6 +160,11 @@ function TooltipCarico({ active, payload }) {
         <p>
           Punteggio: <strong>{formattaPunteggio(riga.oggiValore)}</strong>
         </p>
+        {riga.numeroSet != null && (
+          <p>
+            Serie: <strong>{riga.numeroSet}</strong>
+          </p>
+        )}
       </div>
     );
   }
@@ -171,6 +176,11 @@ function TooltipCarico({ active, payload }) {
       <p>
         {etichettaValore}: <strong>{formattaPunteggio(valore)}</strong>
       </p>
+      {riga.numeroSet != null && (
+        <p>
+          Serie: <strong>{riga.numeroSet}</strong>
+        </p>
+      )}
     </div>
   );
 }
@@ -244,6 +254,7 @@ export default function Dashboard() {
           punteggio: ultimoConfermato,
           punteggioProiezione: inProiezione ? ultimoConfermato : null,
           oggiValore: s.punteggio_totale,
+          numeroSet: s.numero_set,
           oggi: true,
         });
         if (inProiezione) {
@@ -253,6 +264,7 @@ export default function Dashboard() {
             punteggio: null,
             punteggioProiezione: s.punteggio_proiettato,
             oggiValore: null,
+            numeroSet: null,
             oggi: false,
           });
         }
@@ -263,6 +275,7 @@ export default function Dashboard() {
           punteggio: s.punteggio_totale,
           punteggioProiezione: null,
           oggiValore: null,
+          numeroSet: s.numero_set,
           oggi: false,
         });
       }
