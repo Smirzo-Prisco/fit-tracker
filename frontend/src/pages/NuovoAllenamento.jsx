@@ -375,21 +375,6 @@ export default function NuovoAllenamento() {
   const reale = useMemo(() => punteggioReale(esercizi), [esercizi]);
   const proiettato = useMemo(() => punteggioProiettato(esercizi), [esercizi]);
 
-  // Somma dei punteggi dell'ultima volta, solo per gli esercizi attualmente presenti
-  // in questo allenamento — il riferimento da superare cambia con quello che stai
-  // effettivamente facendo oggi (aggiungere/togliere un esercizio lo ricalcola).
-  const punteggioBaseline = useMemo(() => {
-    let totale = 0;
-    let almenoUno = false;
-    for (const e of esercizi) {
-      if (e.haStorico) {
-        totale += e.storicoPunteggio;
-        almenoUno = true;
-      }
-    }
-    return almenoUno ? totale : null;
-  }, [esercizi]);
-
   const eserciziSenzaStorico = useMemo(
     () => esercizi.filter((e) => e.storicoCaricato && !e.haStorico).map((e) => e.nome),
     [esercizi]
@@ -422,18 +407,6 @@ export default function NuovoAllenamento() {
       <p className="testo-secondario">Ogni dato si salva da solo appena esci dal campo.</p>
       {proiettato != null && (
         <>
-          <p className="testo-secondario">
-            Punteggio previsto: <strong>{formattaPunteggio(proiettato)}</strong>
-            {/* Finché non è tutto compilato, "previsto" include ancora dei placeholder:
-                questo mostra quanto di quel totale è già davvero registrato. */}
-            {reale != null && reale !== proiettato && <> — già registrato: {formattaPunteggio(reale)}</>}
-          </p>
-          {punteggioBaseline != null && (
-            <p className="testo-secondario">
-              Ultima volta per questi stessi esercizi: {formattaPunteggio(punteggioBaseline)} (
-              <strong>{formattaDelta(proiettato - punteggioBaseline)}</strong>)
-            </p>
-          )}
           {allenamentoPrecedente && (
             <p className="testo-secondario">
               Allenamento precedente con stessa scheda ({formattaData(allenamentoPrecedente.data)}):{' '}
