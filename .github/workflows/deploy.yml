@@ -48,6 +48,9 @@ jobs:
 
             install_se_serve ${{ secrets.SSH_PATH }}/backend --production
             cd ${{ secrets.SSH_PATH }}/backend
+            # Migrazioni DB prima del riavvio: il nuovo codice può dipendere da nuove colonne.
+            # Con set -e un errore qui ferma il deploy senza riavviare il backend.
+            node migrate.js
             pm2 restart fit-api || pm2 start server.js --name fit-api
 
             install_se_serve ${{ secrets.SSH_PATH }}/frontend
