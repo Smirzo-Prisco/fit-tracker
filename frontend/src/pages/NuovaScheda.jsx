@@ -26,6 +26,7 @@ export default function NuovaScheda() {
           esercizio_id: e.esercizio_id,
           serie_consigliate: e.serie_consigliate ?? '',
           ripetizioni_consigliate: e.ripetizioni_consigliate ?? '',
+          riposo_min: e.riposo_min != null ? String(Number(e.riposo_min)) : '',
         }))
       );
     });
@@ -33,7 +34,7 @@ export default function NuovaScheda() {
 
   function aggiungiEsercizio(esercizioId) {
     if (!esercizioId) return;
-    setEsercizi((prev) => [...prev, { esercizio_id: esercizioId, serie_consigliate: '', ripetizioni_consigliate: '' }]);
+    setEsercizi((prev) => [...prev, { esercizio_id: esercizioId, serie_consigliate: '', ripetizioni_consigliate: '', riposo_min: '' }]);
   }
 
   function aggiornaObiettivo(indice, campo, valore) {
@@ -64,6 +65,7 @@ export default function NuovaScheda() {
         esercizio_id: e.esercizio_id,
         serie_consigliate: e.serie_consigliate || null,
         ripetizioni_consigliate: e.ripetizioni_consigliate || null,
+        riposo_min: e.riposo_min || null,
       })),
     };
     try {
@@ -111,7 +113,7 @@ export default function NuovaScheda() {
 
         <h2>Esercizi in ordine</h2>
         <p className="testo-secondario">
-          Serie e ripetizioni sono solo un obiettivo di riferimento per quando farai l'allenamento da questa
+          Serie, ripetizioni e minuti di riposo tra le serie sono solo un obiettivo di riferimento per quando farai l'allenamento da questa
           scheda — non influenzano il punteggio di carico.
         </p>
         <div className="lista-scheda-esercizi">
@@ -141,6 +143,21 @@ export default function NuovaScheda() {
                     value={riga.ripetizioni_consigliate}
                     onChange={(e) => aggiornaObiettivo(i, 'ripetizioni_consigliate', e.target.value)}
                     aria-label="Ripetizioni consigliate"
+                  />
+                  <span className="riga-scheda-esercizio__per" aria-hidden="true">
+                    ⏱
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    inputMode="decimal"
+                    placeholder="Min"
+                    className="riga-scheda-esercizio__obiettivo"
+                    value={riga.riposo_min}
+                    onChange={(e) => aggiornaObiettivo(i, 'riposo_min', e.target.value)}
+                    aria-label="Minuti di riposo tra le serie"
+                    title="Minuti di riposo tra le serie"
                   />
                   <div className="riga-scheda-esercizio__azioni">
                     <button type="button" onClick={() => sposta(i, -1)} disabled={i === 0} aria-label="Sposta su">

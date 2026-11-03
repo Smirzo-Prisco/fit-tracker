@@ -750,13 +750,14 @@ textarea:focus {
 .riga-scheda-esercizio__riga2 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap; /* con anche il campo riposo, su schermi stretti le azioni vanno a capo */
+  gap: 6px;
   flex: 1 1 100%;
   justify-content: flex-end;
 }
 
 .riga-scheda-esercizio__obiettivo {
-  width: 52px;
+  width: 48px;
   flex-shrink: 0;
   text-align: center;
   background: var(--colore-sfondo);

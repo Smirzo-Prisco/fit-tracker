@@ -1,5 +1,10 @@
 import { formattaPunteggio, formattaDelta } from '../lib/punteggioCarico';
 
+// 1.5 → "1,5", 2 → "2" (formato italiano, senza decimali inutili).
+function formattaRiposo(minuti) {
+  return minuti.toLocaleString('it-IT', { maximumFractionDigits: 1 });
+}
+
 export default function RigaEsercizio({
   esercizio,
   punteggioCorrente,
@@ -15,6 +20,8 @@ export default function RigaEsercizio({
   // non il valore "proiettato" che mischiava reale e placeholder: qui servono
   // due numeri distinti e sempre coerenti con quello che chiedi, non un ibrido.
   const punteggioUltimo = esercizio.haStorico ? esercizio.storicoPunteggio : null;
+  // riposo_min arriva da MySQL come stringa DECIMAL ("1.5"): null/0 = non impostato.
+  const riposo = Number(esercizio.obiettivo?.riposo) > 0 ? Number(esercizio.obiettivo.riposo) : null;
 
   return (
     <div className="blocco-esercizio">
@@ -29,9 +36,15 @@ export default function RigaEsercizio({
 
         <div className="riga-esercizio__campi">
           <span className="riga-esercizio__nome-fisso">{esercizio.nome}</span>
-          {(esercizio.obiettivo?.serie || esercizio.obiettivo?.ripetizioni) && (
+          {(esercizio.obiettivo?.serie || esercizio.obiettivo?.ripetizioni || riposo) && (
             <span className="riga-esercizio__obiettivo" title="Obiettivo dalla scheda">
-              🎯 {esercizio.obiettivo.serie || '?'}×{esercizio.obiettivo.ripetizioni || '?'}
+              {(esercizio.obiettivo.serie || esercizio.obiettivo.ripetizioni) && (
+                <>
+                  🎯 {esercizio.obiettivo.serie || '?'}×{esercizio.obiettivo.ripetizioni || '?'}
+                </>
+              )}
+              {(esercizio.obiettivo.serie || esercizio.obiettivo.ripetizioni) && riposo && ' · '}
+              {riposo && <span title="Riposo tra le serie">⏱ {formattaRiposo(riposo)} min</span>}
             </span>
           )}
           {esercizio.storicoCaricato && (

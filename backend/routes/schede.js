@@ -34,7 +34,7 @@ router.get(
       return res.status(404).json({ error: 'Scheda non trovata' });
     }
     const [esercizi] = await pool.query(
-      `SELECT se.id, se.esercizio_id, se.ordine, se.serie_consigliate, se.ripetizioni_consigliate,
+      `SELECT se.id, se.esercizio_id, se.ordine, se.serie_consigliate, se.ripetizioni_consigliate, se.riposo_min,
               e.nome, e.immagine_url
        FROM scheda_esercizi se
        JOIN esercizi e ON e.id = se.esercizio_id
@@ -49,6 +49,15 @@ router.get(
 // L'esercizio deve appartenere a chi sta scrivendo la scheda — il catalogo
 // non è più condiviso (vedi esercizi.js), altrimenti si potrebbe agganciare
 // alla propria scheda l'id di un esercizio di un altro utente.
+// Minuti di riposo: accetta anche la virgola decimale ("1,5"), scarta valori non
+// validi o fuori dal range della colonna DECIMAL(4,1).
+function normalizzaRiposo(valore) {
+  if (valore === null || valore === undefined || valore === '') return null;
+  const n = Number(String(valore).replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0 || n >= 1000) return null;
+  return Math.round(n * 10) / 10;
+}
+
 async function salvaEsercizi(connection, schedaId, esercizi, utenteId) {
   if (!Array.isArray(esercizi)) return null;
   for (let i = 0; i < esercizi.length; i += 1) {
@@ -58,14 +67,15 @@ async function salvaEsercizi(connection, schedaId, esercizi, utenteId) {
     ]);
     if (!esercizioRows[0]) return 'Esercizio non trovato';
     await connection.query(
-      `INSERT INTO scheda_esercizi (scheda_id, esercizio_id, ordine, serie_consigliate, ripetizioni_consigliate)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO scheda_esercizi (scheda_id, esercizio_id, ordine, serie_consigliate, ripetizioni_consigliate, riposo_min)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         schedaId,
         esercizi[i].esercizio_id,
         i,
         esercizi[i].serie_consigliate || null,
         esercizi[i].ripetizioni_consigliate || null,
+        normalizzaRiposo(esercizi[i].riposo_min),
       ]
     );
   }

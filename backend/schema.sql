@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS scheda_esercizi (
   -- vincolante e non usato nel punteggio di carico.
   serie_consigliate INT,
   ripetizioni_consigliate INT,
+  -- Minuti di riposo consigliati tra una serie e l'altra (es. 1.5). Anche questo solo promemoria.
+  riposo_min DECIMAL(4,1),
   FOREIGN KEY (scheda_id) REFERENCES schede(id) ON DELETE CASCADE,
   FOREIGN KEY (esercizio_id) REFERENCES esercizi(id) ON DELETE RESTRICT,
   INDEX idx_scheda_esercizi_scheda (scheda_id)

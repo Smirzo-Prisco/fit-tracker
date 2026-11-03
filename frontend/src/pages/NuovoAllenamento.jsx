@@ -186,7 +186,11 @@ export default function NuovoAllenamento() {
               riferimento1Rm: storico.riferimento_1rm,
               storicoPunteggio: punteggioSerieList(storico.serie, storico.riferimento_1rm),
               obiettivo: obiettivo
-                ? { serie: obiettivo.serie_consigliate, ripetizioni: obiettivo.ripetizioni_consigliate }
+                ? {
+                    serie: obiettivo.serie_consigliate,
+                    ripetizioni: obiettivo.ripetizioni_consigliate,
+                    riposo: obiettivo.riposo_min,
+                  }
                 : null,
             };
           })
@@ -256,7 +260,11 @@ export default function NuovoAllenamento() {
 
       const obiettivoRiga = elencoSchedaEsercizi.find((se) => String(se.esercizio_id) === String(esercizioId));
       const obiettivo = obiettivoRiga
-        ? { serie: obiettivoRiga.serie_consigliate, ripetizioni: obiettivoRiga.ripetizioni_consigliate }
+        ? {
+            serie: obiettivoRiga.serie_consigliate,
+            ripetizioni: obiettivoRiga.ripetizioni_consigliate,
+            riposo: obiettivoRiga.riposo_min,
+          }
         : null;
 
       // Precompila automaticamente le stesse serie dell'ultima volta (come placeholder)
