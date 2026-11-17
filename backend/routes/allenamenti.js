@@ -408,6 +408,22 @@ router.post(
   })
 );
 
+// Salva il numero di serie voluto per l'esercizio in questo allenamento (vedi
+// serie_previste in schema.sql): chiamata quando aggiungi o rimuovi una serie a mano.
+router.put(
+  '/:id/esercizi/:aeId',
+  asyncHandler(async (req, res) => {
+    const ae = await trovaAllenamentoEsercizio(req.utenteId, req.params.id, req.params.aeId);
+    if (!ae) return res.status(404).json({ error: 'Esercizio non trovato in questo allenamento' });
+    const n = Number(req.body.serie_previste);
+    if (!Number.isInteger(n) || n < 0 || n > 100) {
+      return res.status(400).json({ error: 'Numero di serie non valido' });
+    }
+    await pool.query('UPDATE allenamento_esercizi SET serie_previste = ? WHERE id = ?', [n, req.params.aeId]);
+    res.json({ ok: true, serie_previste: n });
+  })
+);
+
 router.delete(
   '/:id/esercizi/:aeId',
   asyncHandler(async (req, res) => {

@@ -95,10 +95,14 @@ function serieVuote(numero) {
 // Aggancia i valori di riferimento alle serie già salvate (posizione per posizione) e,
 // se lo storico ne ha di più, aggiunge le righe placeholder mancanti — quelle non
 // compilate l'ultima apertura non erano mai state salvate, quindi vanno riproposte.
-function conRiferimenti(serieEsistenti, serieStorico) {
+// seriePreviste (serie_previste dell'esercizio in questo allenamento, se hai aggiunto o
+// rimosso serie a mano) prende il posto della lunghezza dello storico: le placeholder
+// che avevi tolto non vanno ricreate, e quelle che avevi aggiunto vanno riproposte.
+function conRiferimenti(serieEsistenti, serieStorico, seriePreviste = null) {
   const risultato = serieEsistenti.map((s, i) => ({ ...s, riferimento: serieStorico[i] || null }));
-  for (let i = serieEsistenti.length; i < serieStorico.length; i += 1) {
-    risultato.push({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: serieStorico[i] });
+  const totale = seriePreviste ?? serieStorico.length;
+  for (let i = serieEsistenti.length; i < totale; i += 1) {
+    risultato.push({ id: null, ripetizioni: '', peso_kg: '', rpe: '', riferimento: serieStorico[i] || null });
   }
   return risultato;
 }
@@ -172,10 +176,11 @@ export default function NuovoAllenamento() {
         setEsercizi((prev) =>
           prev.map((riga) => {
             if (riga.id !== e.id) return riga;
-            let serie = conRiferimenti(riga.serie, storico.serie);
+            const seriePreviste = e.serie_previste ?? null;
+            let serie = conRiferimenti(riga.serie, storico.serie, seriePreviste);
             // Nessuna serie salvata e nessuno storico: precompila con l'obiettivo della
             // scheda invece di lasciare l'esercizio senza nemmeno una riga da riempire.
-            if (serie.length === 0 && storico.serie.length === 0 && obiettivo?.serie_consigliate) {
+            if (seriePreviste == null && serie.length === 0 && storico.serie.length === 0 && obiettivo?.serie_consigliate) {
               serie = serieVuote(obiettivo.serie_consigliate);
             }
             return {
@@ -301,7 +306,15 @@ export default function NuovoAllenamento() {
     }
   }
 
+  // Ricorda sul server quante serie vuoi per questo esercizio (vedi conRiferimenti):
+  // senza, le placeholder rimosse ricomparirebbero riaprendo l'allenamento.
+  function salvaSeriePreviste(esercizio, numero) {
+    if (!esercizio.id) return;
+    segnalaErrore(api.put(`/allenamenti/${id}/esercizi/${esercizio.id}`, { serie_previste: numero }));
+  }
+
   function aggiungiSerie(indiceEsercizio) {
+    salvaSeriePreviste(esercizi[indiceEsercizio], esercizi[indiceEsercizio].serie.length + 1);
     setEsercizi((prev) =>
       prev.map((e, i) =>
         i === indiceEsercizio
@@ -372,6 +385,7 @@ export default function NuovoAllenamento() {
   async function rimuoviSerie(indiceEsercizio, indiceSerie) {
     const esercizio = esercizi[indiceEsercizio];
     const riga = esercizio.serie[indiceSerie];
+    salvaSeriePreviste(esercizio, esercizio.serie.length - 1);
     setEsercizi((prev) =>
       prev.map((e, i) => (i === indiceEsercizio ? { ...e, serie: e.serie.filter((_, j) => j !== indiceSerie) } : e))
     );

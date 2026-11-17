@@ -109,6 +109,9 @@ CREATE TABLE IF NOT EXISTS allenamento_esercizi (
   allenamento_id INT NOT NULL,
   esercizio_id INT NOT NULL,
   ordine INT NOT NULL DEFAULT 0,
+  -- Serie volute in questo allenamento se cambiate a mano (NULL = come l'ultima volta):
+  -- evita che le placeholder rimosse ricompaiano riaprendo l'allenamento.
+  serie_previste INT,
   FOREIGN KEY (allenamento_id) REFERENCES allenamenti(id) ON DELETE CASCADE,
   FOREIGN KEY (esercizio_id) REFERENCES esercizi(id) ON DELETE RESTRICT,
   INDEX idx_allenamento_esercizi_esercizio (esercizio_id)
