@@ -1,4 +1,4 @@
-import { formattaPunteggio, formattaDelta } from '../lib/punteggioCarico';
+import { formattaPunteggio, formattaDelta, formatta1Rm } from '../lib/punteggioCarico';
 
 // 1.5 → "1,5", 2 → "2" (formato italiano, senza decimali inutili).
 function formattaRiposo(minuti) {
@@ -45,6 +45,11 @@ export default function RigaEsercizio({
               )}
               {(esercizio.obiettivo.serie || esercizio.obiettivo.ripetizioni) && riposo && ' · '}
               {riposo && <span title="Riposo tra le serie">⏱ {formattaRiposo(riposo)} min</span>}
+            </span>
+          )}
+          {esercizio.riferimento1Rm > 0 && (
+            <span className="riga-esercizio__obiettivo" title="1RM stimato (Epley) di riferimento">
+              1RM {formatta1Rm(esercizio.riferimento1Rm)}
             </span>
           )}
           {esercizio.storicoCaricato && (

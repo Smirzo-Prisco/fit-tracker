@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { formattaData } from '../lib/date';
 import { GRUPPI_MUSCOLARI, COLORE_GRUPPO } from '../lib/gruppiMuscolari';
 import { trovaEsercizioSimile } from '../lib/similitudineEsercizi';
-import { punteggioSerie, formattaPunteggio } from '../lib/punteggioCarico';
+import { punteggioSerie, formattaPunteggio, formatta1Rm } from '../lib/punteggioCarico';
 
 // Tooltip custom per il grafico di progressione: quello di default di recharts ha sfondo
 // bianco ed etichetta della data in grigio chiaro (#999, non personalizzabile col solo prop
@@ -48,6 +48,7 @@ export default function Esercizi() {
   const [salvataggio, setSalvataggio] = useState(false);
   const [errore, setErrore] = useState('');
   const [progressioneCarico, setProgressioneCarico] = useState([]);
+  const [riferimento1Rm, setRiferimento1Rm] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -75,9 +76,11 @@ export default function Esercizi() {
     setGruppiMuscolari(esercizio.gruppi_muscolari || []);
     setErrore('');
     setProgressioneCarico([]);
+    setRiferimento1Rm(esercizio.riferimento_1rm ?? null);
     setFoglio(esercizio);
 
     api.get(`/esercizi/${esercizio.id}/progressione`).then(({ riferimento_1rm, serie }) => {
+      setRiferimento1Rm(riferimento_1rm);
       // Punteggio di carico per sessione: somma del punteggio di tutte le serie di quella
       // data (vedi punteggioSerie in lib/punteggioCarico per la formula) — solo quelle con
       // RPE registrato, i dati storici pre-RPE non contribuiscono, non vanno trattati come
@@ -329,6 +332,12 @@ export default function Esercizi() {
                   ))}
                   {e.gruppi_muscolari?.length > 0 && ' · '}
                   {e.volte_usato}x
+                  {e.riferimento_1rm > 0 && (
+                    <>
+                      {' · '}
+                      <span title="1RM stimato (Epley) di riferimento">1RM {formatta1Rm(e.riferimento_1rm)}</span>
+                    </>
+                  )}
                 </span>
               </span>
               <span className="riga-catalogo__freccia">›</span>
@@ -438,6 +447,20 @@ export default function Esercizi() {
                     Elimina
                   </button>
                 </div>
+
+                <h3>1RM stimato</h3>
+                {riferimento1Rm > 0 ? (
+                  <p className="valore-1rm">
+                    <strong>{formatta1Rm(riferimento1Rm)}</strong>
+                    <span className="testo-secondario">
+                      {' '}
+                      — il migliore delle ultime 4 settimane (o di sempre, se non lo fai da più tempo), calcolato con
+                      la formula di Epley: kg × (1 + ripetizioni/30)
+                    </span>
+                  </p>
+                ) : (
+                  <p className="testo-secondario">Registra almeno una serie con ripetizioni e kg per calcolarlo.</p>
+                )}
 
                 <h3>Punteggio di carico per sessione</h3>
                 {progressioneCarico.length > 1 ? (

@@ -20,6 +20,12 @@ export function formattaPunteggio(numero) {
   return numero.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// 1RM stimato in kg per la visualizzazione: un decimale al massimo ("82,5 kg", "100 kg").
+export function formatta1Rm(kg) {
+  if (!kg) return '—';
+  return `${Number(kg).toLocaleString('it-IT', { maximumFractionDigits: 1 })} kg`;
+}
+
 // "+58,25" / "-12,40" / "+0,00" — differenza tra due punteggi di carico, con segno
 // esplicito anche per gli incrementi positivi. Il segno meno dei valori negativi
 // arriva già da formattaPunteggio (toLocaleString).

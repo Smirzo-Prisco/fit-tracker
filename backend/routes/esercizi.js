@@ -100,7 +100,19 @@ router.get(
       if (!gruppiPerEsercizio.has(g.esercizio_id)) gruppiPerEsercizio.set(g.esercizio_id, []);
       gruppiPerEsercizio.get(g.esercizio_id).push({ gruppo_muscolare: g.gruppo_muscolare, percentuale: g.percentuale });
     }
-    res.json(esercizi.map((e) => ({ ...e, gruppi_muscolari: gruppiPerEsercizio.get(e.id) || [] })));
+    // 1RM stimato di riferimento (stesso valore usato nel punteggio di carico, vedi
+    // lib/punteggioCarico): null per gli esercizi mai svolti con ripetizioni e kg.
+    const riferimenti1Rm = await caricaRiferimenti1Rm(
+      req.utenteId,
+      esercizi.map((e) => e.id)
+    );
+    res.json(
+      esercizi.map((e) => ({
+        ...e,
+        gruppi_muscolari: gruppiPerEsercizio.get(e.id) || [],
+        riferimento_1rm: riferimenti1Rm[e.id] ?? null,
+      }))
+    );
   })
 );
 

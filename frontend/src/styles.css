@@ -1043,3 +1043,11 @@ textarea:focus {
   margin: 0;
   font-size: 0.9rem;
 }
+
+.valore-1rm {
+  margin: 0 0 12px;
+}
+
+.valore-1rm strong {
+  font-size: 1.3rem;
+}
