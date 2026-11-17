@@ -112,7 +112,6 @@ export default function NuovoAllenamento() {
   const [schedaId, setSchedaId] = useState('');
   const [schedaEsercizi, setSchedaEsercizi] = useState([]);
   const [allenamentoPrecedente, setAllenamentoPrecedente] = useState(null);
-  const [precedenteStessiEsercizi, setPrecedenteStessiEsercizi] = useState(null);
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [durataMin, setDurataMin] = useState('');
   const [note, setNote] = useState('');
@@ -381,29 +380,24 @@ export default function NuovoAllenamento() {
     }
   }
 
-  // Insieme degli esercizi attuali (ordinato, senza doppioni): cambia solo quando ne
-  // aggiungi o togli uno, non a ogni serie digitata — è la chiave per ricaricare
-  // l'ultimo allenamento con gli stessi esercizi.
-  const chiaveEsercizi = useMemo(
-    () => [...new Set(esercizi.map((e) => Number(e.esercizio_id)))].sort((a, b) => a - b).join(','),
-    [esercizi]
-  );
-  useEffect(() => {
-    if (!id || !chiaveEsercizi) {
-      setPrecedenteStessiEsercizi(null);
-      return;
-    }
-    let annullato = false;
-    api
-      .get(`/allenamenti/${id}/precedente-stessi-esercizi?esercizi=${chiaveEsercizi}`)
-      .then((r) => !annullato && setPrecedenteStessiEsercizi(r))
-      .catch(() => !annullato && setPrecedenteStessiEsercizi(null));
-    return () => {
-      annullato = true;
-    };
-  }, [id, chiaveEsercizi]);
-
   const reale = useMemo(() => punteggioReale(esercizi), [esercizi]);
+
+  // Somma dei punteggi dell'ULTIMA volta di ciascun esercizio presente ora (lo stesso
+  // "Ultimo" mostrato su ogni riga, da GET /esercizi/:id/ultima-sessione), anche se
+  // quelle ultime volte stanno in allenamenti diversi. Il confronto è alla pari: il
+  // punteggio attuale conta solo gli esercizi che hanno un "ultimo", così un esercizio
+  // nuovo non gonfia la differenza. Mostrato solo quando lo storico di tutti è arrivato.
+  const ultimeVolte = useMemo(() => {
+    if (esercizi.length === 0 || esercizi.some((e) => !e.storicoCaricato)) return null;
+    const conStorico = esercizi.filter((e) => e.haStorico);
+    if (conStorico.length === 0) return null;
+    return {
+      totale: conStorico.reduce((somma, e) => somma + (e.storicoPunteggio || 0), 0),
+      attuale: punteggioProiettato(conStorico),
+      conStorico: conStorico.length,
+      tutti: esercizi.length,
+    };
+  }, [esercizi]);
   const proiettato = useMemo(() => punteggioProiettato(esercizi), [esercizi]);
 
   const eserciziSenzaStorico = useMemo(
@@ -445,11 +439,16 @@ export default function NuovoAllenamento() {
               <strong>{formattaDelta(proiettato - allenamentoPrecedente.punteggio_totale)}</strong>)
             </p>
           )}
-          {precedenteStessiEsercizi && (
+          {ultimeVolte && (
             <p className="testo-secondario">
-              Allenamento precedente con stessi esercizi ({formattaData(precedenteStessiEsercizi.data)}):{' '}
-              {formattaPunteggio(precedenteStessiEsercizi.punteggio_totale)} (
-              <strong>{formattaDelta(proiettato - precedenteStessiEsercizi.punteggio_totale)}</strong>)
+              Ultima volta di ogni esercizio
+              {ultimeVolte.conStorico < ultimeVolte.tutti && ` (${ultimeVolte.conStorico} su ${ultimeVolte.tutti})`}:{' '}
+              {formattaPunteggio(ultimeVolte.totale)}
+              {ultimeVolte.attuale != null && (
+                <>
+                  {' '}(<strong>{formattaDelta(ultimeVolte.attuale - ultimeVolte.totale)}</strong>)
+                </>
+              )}
             </p>
           )}
         </>
