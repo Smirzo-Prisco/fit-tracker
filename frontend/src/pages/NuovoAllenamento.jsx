@@ -112,6 +112,7 @@ export default function NuovoAllenamento() {
   const [schedaId, setSchedaId] = useState('');
   const [schedaEsercizi, setSchedaEsercizi] = useState([]);
   const [allenamentoPrecedente, setAllenamentoPrecedente] = useState(null);
+  const [precedenteStessiEsercizi, setPrecedenteStessiEsercizi] = useState(null);
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [durataMin, setDurataMin] = useState('');
   const [note, setNote] = useState('');
@@ -380,6 +381,28 @@ export default function NuovoAllenamento() {
     }
   }
 
+  // Insieme degli esercizi attuali (ordinato, senza doppioni): cambia solo quando ne
+  // aggiungi o togli uno, non a ogni serie digitata — è la chiave per ricaricare
+  // l'ultimo allenamento con gli stessi esercizi.
+  const chiaveEsercizi = useMemo(
+    () => [...new Set(esercizi.map((e) => Number(e.esercizio_id)))].sort((a, b) => a - b).join(','),
+    [esercizi]
+  );
+  useEffect(() => {
+    if (!id || !chiaveEsercizi) {
+      setPrecedenteStessiEsercizi(null);
+      return;
+    }
+    let annullato = false;
+    api
+      .get(`/allenamenti/${id}/precedente-stessi-esercizi?esercizi=${chiaveEsercizi}`)
+      .then((r) => !annullato && setPrecedenteStessiEsercizi(r))
+      .catch(() => !annullato && setPrecedenteStessiEsercizi(null));
+    return () => {
+      annullato = true;
+    };
+  }, [id, chiaveEsercizi]);
+
   const reale = useMemo(() => punteggioReale(esercizi), [esercizi]);
   const proiettato = useMemo(() => punteggioProiettato(esercizi), [esercizi]);
 
@@ -420,6 +443,13 @@ export default function NuovoAllenamento() {
               Allenamento precedente con stessa scheda ({formattaData(allenamentoPrecedente.data)}):{' '}
               {formattaPunteggio(allenamentoPrecedente.punteggio_totale)} (
               <strong>{formattaDelta(proiettato - allenamentoPrecedente.punteggio_totale)}</strong>)
+            </p>
+          )}
+          {precedenteStessiEsercizi && (
+            <p className="testo-secondario">
+              Allenamento precedente con stessi esercizi ({formattaData(precedenteStessiEsercizi.data)}):{' '}
+              {formattaPunteggio(precedenteStessiEsercizi.punteggio_totale)} (
+              <strong>{formattaDelta(proiettato - precedenteStessiEsercizi.punteggio_totale)}</strong>)
             </p>
           )}
         </>

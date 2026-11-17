@@ -331,6 +331,73 @@ router.get(
   })
 );
 
+// Ultimo allenamento precedente con ESATTAMENTE gli stessi esercizi (stesso insieme,
+// l'ordine non conta), qualunque sia la scheda — anche senza scheda. Gli esercizi
+// arrivano dal client (?esercizi=3,5,7) invece di essere letti dal DB: la pagina li
+// rimuove dallo stato prima che la DELETE sul server sia conclusa, e il confronto deve
+// seguire quello che l'utente vede. "Precedente" = data anteriore, o stessa data ma
+// creato prima; contano solo allenamenti con almeno una serie completa (rip, kg, RPE),
+// come per allenamento_precedente in GET /:id.
+router.get(
+  '/:id/precedente-stessi-esercizi',
+  asyncHandler(async (req, res) => {
+    const ids = [
+      ...new Set(
+        String(req.query.esercizi || '')
+          .split(',')
+          .map((v) => parseInt(v, 10))
+          .filter((v) => Number.isInteger(v) && v > 0)
+      ),
+    ].sort((a, b) => a - b);
+    if (ids.length === 0) return res.json(null);
+
+    const [allenamentoRows] = await pool.query('SELECT id, data FROM allenamenti WHERE id = ? AND utente_id = ?', [
+      req.params.id,
+      req.utenteId,
+    ]);
+    const allenamento = allenamentoRows[0];
+    if (!allenamento) return res.status(404).json({ error: 'Allenamento non trovato' });
+
+    const [rows] = await pool.query(
+      `SELECT a2.id, a2.data, SUM(${SQL_PUNTEGGIO_SERIE}) AS punteggio_totale
+       FROM allenamenti a2
+       JOIN (
+         SELECT ae_s.allenamento_id
+         FROM allenamento_esercizi ae_s
+         JOIN allenamenti a_s ON a_s.id = ae_s.allenamento_id
+         WHERE a_s.utente_id = ?
+         GROUP BY ae_s.allenamento_id
+         HAVING GROUP_CONCAT(DISTINCT ae_s.esercizio_id ORDER BY ae_s.esercizio_id SEPARATOR ',') = ?
+       ) stessi ON stessi.allenamento_id = a2.id
+       JOIN allenamento_esercizi ae2 ON ae2.allenamento_id = a2.id
+       JOIN serie s ON s.allenamento_esercizio_id = ae2.id
+       ${sqlJoinRiferimento1Rm('ae2.esercizio_id')}
+       WHERE a2.utente_id = ? AND a2.id != ?
+         AND (a2.data < ? OR (a2.data = ? AND a2.id < ?))
+         AND s.ripetizioni IS NOT NULL AND s.peso_kg IS NOT NULL AND s.rpe IS NOT NULL
+       GROUP BY a2.id
+       ORDER BY a2.data DESC, a2.id DESC
+       LIMIT 1`,
+      [
+        req.utenteId,
+        ids.join(','),
+        req.utenteId,
+        req.utenteId,
+        allenamento.id,
+        allenamento.data,
+        allenamento.data,
+        allenamento.id,
+      ]
+    );
+    if (!rows[0]) return res.json(null);
+    res.json({
+      id: rows[0].id,
+      data: rows[0].data,
+      punteggio_totale: Math.round(Number(rows[0].punteggio_totale) * 100) / 100,
+    });
+  })
+);
+
 // Crea l'allenamento con solo la data (di norma chiamata subito all'apertura di "Nuovo allenamento",
 // così ogni azione successiva ha già un id su cui salvare istantaneamente).
 router.post(
