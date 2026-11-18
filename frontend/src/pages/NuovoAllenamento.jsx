@@ -14,13 +14,29 @@ import RigaEsercizio from '../components/RigaEsercizio.jsx';
 // Conta solo ciò che hai già scritto: su un allenamento pianificato e non ancora svolto
 // resta null (vedi punteggioProiettato sotto per un totale sempre visibile, basato anche sui
 // placeholder non ancora superati).
+// 1RM di riferimento da usare per il punteggio di un esercizio. Di norma quello dello
+// storico (riferimento1Rm). Per un esercizio mai fatto prima non esiste: in quel caso
+// si usa il miglior 1RM stimato (Epley, kg × (1 + rip/30)) tra le serie scritte ORA in
+// questo allenamento — è lo stesso valore che il backend userà una volta salvate (il suo
+// riferimento include anche le serie di oggi), così il punteggio non resta a zero.
+function riferimento1RmEffettivo(e) {
+  if (e.riferimento1Rm) return e.riferimento1Rm;
+  let migliore = null;
+  for (const s of e.serie) {
+    if (s.ripetizioni === '' || s.peso_kg === '') continue;
+    const stima = Number(s.peso_kg) * (1 + Number(s.ripetizioni) / 30);
+    if (stima > 0 && (migliore == null || stima > migliore)) migliore = stima;
+  }
+  return migliore;
+}
+
 function punteggioReale(esercizi) {
   let totale = 0;
   let almenoUna = false;
   for (const e of esercizi) {
     for (const s of e.serie) {
       if (s.ripetizioni === '' || s.peso_kg === '' || s.rpe === '') continue;
-      const punteggio = punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe), e.riferimento1Rm);
+      const punteggio = punteggioSerie(Number(s.ripetizioni), Number(s.peso_kg), Number(s.rpe), riferimento1RmEffettivo(e));
       if (punteggio == null) continue;
       almenoUna = true;
       totale += punteggio;
@@ -43,7 +59,7 @@ function punteggioProiettato(esercizi) {
       const kg = s.peso_kg !== '' ? s.peso_kg : s.riferimento?.peso_kg;
       const rpe = s.rpe !== '' ? s.rpe : s.riferimento?.rpe;
       if (rip == null || kg == null || rpe == null) continue;
-      const punteggio = punteggioSerie(Number(rip), Number(kg), Number(rpe), e.riferimento1Rm);
+      const punteggio = punteggioSerie(Number(rip), Number(kg), Number(rpe), riferimento1RmEffettivo(e));
       if (punteggio == null) continue;
       almenoUna = true;
       totale += punteggio;
