@@ -414,16 +414,17 @@ export default function NuovoAllenamento() {
 
   // Somma dei punteggi dell'ULTIMA volta di ciascun esercizio presente ora (lo stesso
   // "Ultimo" mostrato su ogni riga, da GET /esercizi/:id/ultima-sessione), anche se
-  // quelle ultime volte stanno in allenamenti diversi. Il confronto è alla pari: il
-  // punteggio attuale conta solo gli esercizi che hanno un "ultimo", così un esercizio
-  // nuovo non gonfia la differenza. Mostrato solo quando lo storico di tutti è arrivato.
+  // quelle ultime volte stanno in allenamenti diversi. Un esercizio mai fatto prima conta
+  // 0 come "ultima volta", ma i suoi punti di oggi entrano nel totale attuale (e quindi
+  // nella differenza), come nella riga della scheda. Mostrato solo quando lo storico di
+  // tutti è arrivato.
   const ultimeVolte = useMemo(() => {
     if (esercizi.length === 0 || esercizi.some((e) => !e.storicoCaricato)) return null;
     const conStorico = esercizi.filter((e) => e.haStorico);
     if (conStorico.length === 0) return null;
     return {
       totale: conStorico.reduce((somma, e) => somma + (e.storicoPunteggio || 0), 0),
-      attuale: punteggioProiettato(conStorico),
+      attuale: punteggioProiettato(esercizi),
       conStorico: conStorico.length,
       tutti: esercizi.length,
     };
@@ -462,6 +463,9 @@ export default function NuovoAllenamento() {
       <p className="testo-secondario">Ogni dato si salva da solo appena esci dal campo.</p>
       {proiettato != null && (
         <>
+          <p className="punteggio-attuale">
+            Punteggio attuale: <strong>{formattaPunteggio(proiettato)}</strong>
+          </p>
           {allenamentoPrecedente && (
             <p className="testo-secondario">
               Allenamento precedente con stessa scheda ({formattaData(allenamentoPrecedente.data)}):{' '}

@@ -1051,3 +1051,7 @@ textarea:focus {
 .valore-1rm strong {
   font-size: 1.3rem;
 }
+
+.punteggio-attuale {
+  margin: 4px 0;
+}
